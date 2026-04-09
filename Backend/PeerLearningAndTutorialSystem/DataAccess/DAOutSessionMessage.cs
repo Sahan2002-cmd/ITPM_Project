@@ -1,99 +1,44 @@
-﻿using PeerLearningAndTutorialSystem.DatabaseConnectivity;
+﻿using MongoDB.Driver;
+using PeerLearningAndTutorialSystem.BusinessLayer;
+using PeerLearningAndTutorialSystem.DatabaseConnectivity;
 using PeerLearningAndTutorialSystem.Interfaces;
 using PeerLearningAndTutorialSystem.Models;
 using PeerLearningAndTutorialSystem.Models.RequestApiModels;
 using System;
 using System.Collections.Generic;
-using System.Data;
-using System.Data.SqlClient;
 
 namespace PeerLearningAndTutorialSystem.DataAccess
 {
-    /*
-     * ══════════════════════════════════════════════════════════════════════
-     *  DAOutSessionMessage — Member 3
-     *  Stored Procedure : PLT_OUT_SESSION_MESSAGE_PROC
-     *  Action Types:
-     *    001 — Get thread for a booking
-     *    002 — Send out-session message
-     *    003 — Edit own message (within 30 minutes)
-     *    004 — Soft delete own message
-     *    005 — Mark all as read (receiver)
-     *    006 — Admin delete with reason
-     * ══════════════════════════════════════════════════════════════════════
-     */
     public class DAOutSessionMessage : IOutSessionMessage
     {
-        private readonly string _proc = "PLT_OUT_SESSION_MESSAGE_PROC";
-        private readonly DBConnect _db = new DBConnect();
-        private readonly ProcedureDBModel _out = new ProcedureDBModel();
+        private readonly IMongoCollection<OutSessionMessageModel> _messages;
+        private readonly IMongoCollection<BookingModel> _bookings;
 
-        // ── MAPPER ────────────────────────────────────────────────────────
-        private OutSessionMessageModel MapRow(DataRow row)
+        public DAOutSessionMessage()
         {
-            return new OutSessionMessageModel
-            {
-                OutMessageId = Convert.ToInt32(row["outMessageId"]),
-                BookingId = Convert.ToInt32(row["bookingId"]),
-                SenderId = Convert.ToInt32(row["senderId"]),
-                ReceiverId = Convert.ToInt32(row["receiverId"]),
-                MessageText = row["messageText"].ToString(),
-                IsRead = Convert.ToBoolean(row["isRead"]),
-                EditedAt = row["editedAt"] != DBNull.Value ? row["editedAt"].ToString() : null,
-                IsDeleted = Convert.ToBoolean(row["isDeleted"]),
-                DeletedAt = row["deletedAt"] != DBNull.Value ? row["deletedAt"].ToString() : null,
-                AdminDeleteReason = row["adminDeleteReason"] != DBNull.Value ? row["adminDeleteReason"].ToString() : null,
-                CreatedBy = row["created_by"] != DBNull.Value ? (int?)Convert.ToInt32(row["created_by"]) : null,
-                CreatedAt = row["created_at"] != DBNull.Value ? row["created_at"].ToString() : null,
-                UpdatedBy = row["updated_by"] != DBNull.Value ? (int?)Convert.ToInt32(row["updated_by"]) : null,
-                UpdatedAt = row["updated_at"] != DBNull.Value ? row["updated_at"].ToString() : null,
-                SenderName = row.Table.Columns.Contains("senderName") && row["senderName"] != DBNull.Value
-                                    ? row["senderName"].ToString() : null
-            };
+            var ctx = new MongoDBContext();
+            _messages = ctx.GetCollection<OutSessionMessageModel>("OutSessionMessages");
+            _bookings = ctx.GetCollection<BookingModel>("Bookings");
         }
 
-        // ════════════════════════════════════════════════════════════════
-        //  001 — GET THREAD
-        //  Returns all non-deleted out-session messages for a booking.
-        //  Business rule: session must be Completed or Confirmed.
-        // ════════════════════════════════════════════════════════════════
+        private string NowIso() => DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ");
+
+        // 001 – GET THREAD (non‑deleted, sorted oldest)
         public Response GetThread(int bookingId)
         {
             try
             {
-                var pStatus = _out.ResultStatusCode();
-                var pMessage = _out.ExceptionMessage();
-
-                var parameters = new[]
-                {
-                    new SqlParameter("@p_action_type", "001"),
-                    new SqlParameter("@p_booking_id",  bookingId),
-                    pStatus, pMessage
-                };
-
-                DataTable dt = _db.ExecuteProcedure(_proc, parameters);
-                string code = pStatus.Value?.ToString();
-
-                if (code == "1")
-                {
-                    var list = new List<OutSessionMessageModel>();
-                    foreach (DataRow row in dt.Rows)
-                        list.Add(MapRow(row));
-                    return Response.Success(list);
-                }
-                return Response.Fail(pMessage.Value?.ToString() ?? "Failed to load messages.");
+                var filter = Builders<OutSessionMessageModel>.Filter.And(
+                    Builders<OutSessionMessageModel>.Filter.Eq(m => m.BookingId, bookingId),
+                    Builders<OutSessionMessageModel>.Filter.Eq(m => m.IsDeleted, false)
+                );
+                var list = _messages.Find(filter).SortBy(m => m.CreatedAt).ToList();
+                return Response.Success(list);
             }
-            catch (Exception ex)
-            {
-                return Response.Error(ex.Message);
-            }
+            catch (Exception ex) { return Response.Error(ex.Message); }
         }
 
-        // ════════════════════════════════════════════════════════════════
-        //  002 — SEND OUT-SESSION MESSAGE
-        //  Business rule: session must be Completed, Confirmed or Pending.
-        //  Unread notification badge increments for receiver.
-        // ════════════════════════════════════════════════════════════════
+        // 002 – SEND MESSAGE (session must be Completed/Confirmed/Pending)
         public Response SendMessage(OutSessionMessageRequestApi request)
         {
             try
@@ -101,135 +46,97 @@ namespace PeerLearningAndTutorialSystem.DataAccess
                 if (string.IsNullOrWhiteSpace(request.MessageText))
                     return Response.Fail("Message text cannot be empty.");
 
-                var pStatus = _out.ResultStatusCode();
-                var pMessage = _out.ExceptionMessage();
+                var booking = _bookings.Find(b => b.BookingId == request.BookingId).FirstOrDefault();
+                if (booking == null || !(booking.Status == "Completed" || booking.Status == "Confirmed" || booking.Status == "Pending"))
+                    return Response.Fail("Out-session messages allowed only for Completed, Confirmed, or Pending sessions.");
 
-                var parameters = new[]
+                var msg = new OutSessionMessageModel
                 {
-                    new SqlParameter("@p_action_type",  "002"),
-                    new SqlParameter("@p_booking_id",   (object)request.BookingId   ?? DBNull.Value),
-                    new SqlParameter("@p_sender_id",    (object)request.SenderId    ?? DBNull.Value),
-                    new SqlParameter("@p_receiver_id",  (object)request.ReceiverId  ?? DBNull.Value),
-                    new SqlParameter("@p_message_text", request.MessageText.Trim()),
-                    pStatus, pMessage
+                    OutMessageId = CounterHelper.GetNextSequence("outMessageId"),
+                    BookingId = request.BookingId.Value,
+                    SenderId = request.SenderId.Value,
+                    ReceiverId = request.ReceiverId.Value,
+                    MessageText = request.MessageText.Trim(),
+                    IsRead = false,
+                    EditedAt = null,
+                    IsDeleted = false,
+                    DeletedAt = null,
+                    AdminDeleteReason = null,
+                    CreatedBy = request.SenderId,
+                    CreatedAt = NowIso(),
+                    UpdatedBy = null,
+                    UpdatedAt = null
                 };
-
-                _db.ExecuteProcedure(_proc, parameters);
-                string code = pStatus.Value?.ToString();
-
-                return code == "1"
-                    ? Response.Success(null, "Message sent.")
-                    : Response.Fail(pMessage.Value?.ToString() ?? "Failed to send message.");
+                _messages.InsertOne(msg);
+                return Response.Success(null, "Message sent.");
             }
-            catch (Exception ex)
-            {
-                return Response.Error(ex.Message);
-            }
+            catch (Exception ex) { return Response.Error(ex.Message); }
         }
 
-        // ════════════════════════════════════════════════════════════════
-        //  003 — EDIT MESSAGE
-        //  Business rule: sender only, within 30 minutes of sending.
-        // ════════════════════════════════════════════════════════════════
+        // 003 – EDIT MESSAGE (within 30 minutes, sender only)
         public Response EditMessage(OutSessionMessageRequestApi request, int callerId)
         {
             try
             {
-                if (string.IsNullOrWhiteSpace(request.MessageText))
-                    return Response.Fail("Message text cannot be empty.");
+                var msg = _messages.Find(m => m.OutMessageId == request.OutMessageId).FirstOrDefault();
+                if (msg == null) return Response.Fail("Message not found.");
+                if (msg.SenderId != callerId) return Response.Fail("You can only edit your own messages.");
 
-                var pStatus = _out.ResultStatusCode();
-                var pMessage = _out.ExceptionMessage();
+                var created = DateTime.Parse(msg.CreatedAt);
+                if ((DateTime.UtcNow - created).TotalMinutes > 30)
+                    return Response.Fail("Edit window (30 minutes) has expired.");
 
-                var parameters = new[]
-                {
-                    new SqlParameter("@p_action_type",  "003"),
-                    new SqlParameter("@p_message_id",   (object)request.OutMessageId ?? DBNull.Value),
-                    new SqlParameter("@p_sender_id",    callerId),
-                    new SqlParameter("@p_message_text", request.MessageText.Trim()),
-                    pStatus, pMessage
-                };
+                _messages.UpdateOne(m => m.OutMessageId == request.OutMessageId,
+                    Builders<OutSessionMessageModel>.Update
+                        .Set(m => m.MessageText, request.MessageText.Trim())
+                        .Set(m => m.EditedAt, NowIso())
+                        .Set(m => m.UpdatedAt, NowIso())
+                        .Set(m => m.UpdatedBy, callerId));
 
-                _db.ExecuteProcedure(_proc, parameters);
-                string code = pStatus.Value?.ToString();
-
-                return code == "1"
-                    ? Response.Success(null, "Message updated.")
-                    : Response.Fail(pMessage.Value?.ToString() ?? "Edit failed. Window may have expired.");
+                return Response.Success(null, "Message updated.");
             }
-            catch (Exception ex)
-            {
-                return Response.Error(ex.Message);
-            }
+            catch (Exception ex) { return Response.Error(ex.Message); }
         }
 
-        // ════════════════════════════════════════════════════════════════
-        //  004 — SOFT DELETE OWN MESSAGE
-        // ════════════════════════════════════════════════════════════════
+        // 004 – SOFT DELETE (sender only)
         public Response DeleteMessage(int outMessageId, int callerId)
         {
             try
             {
-                var pStatus = _out.ResultStatusCode();
-                var pMessage = _out.ExceptionMessage();
+                var msg = _messages.Find(m => m.OutMessageId == outMessageId).FirstOrDefault();
+                if (msg == null) return Response.Fail("Message not found.");
+                if (msg.SenderId != callerId) return Response.Fail("You can only delete your own messages.");
 
-                var parameters = new[]
-                {
-                    new SqlParameter("@p_action_type", "004"),
-                    new SqlParameter("@p_message_id",  outMessageId),
-                    new SqlParameter("@p_sender_id",   callerId),
-                    pStatus, pMessage
-                };
+                _messages.UpdateOne(m => m.OutMessageId == outMessageId,
+                    Builders<OutSessionMessageModel>.Update
+                        .Set(m => m.IsDeleted, true)
+                        .Set(m => m.DeletedAt, NowIso())
+                        .Set(m => m.UpdatedAt, NowIso())
+                        .Set(m => m.UpdatedBy, callerId));
 
-                _db.ExecuteProcedure(_proc, parameters);
-                string code = pStatus.Value?.ToString();
-
-                return code == "1"
-                    ? Response.Success(null, "Message deleted.")
-                    : Response.Fail(pMessage.Value?.ToString() ?? "Delete failed.");
+                return Response.Success(null, "Message deleted.");
             }
-            catch (Exception ex)
-            {
-                return Response.Error(ex.Message);
-            }
+            catch (Exception ex) { return Response.Error(ex.Message); }
         }
 
-        // ════════════════════════════════════════════════════════════════
-        //  005 — MARK ALL READ
-        //  Called when receiver opens the message thread.
-        // ════════════════════════════════════════════════════════════════
+        // 005 – MARK READ (for receiver)
         public Response MarkRead(int bookingId, int receiverId)
         {
             try
             {
-                var pStatus = _out.ResultStatusCode();
-                var pMessage = _out.ExceptionMessage();
-
-                var parameters = new[]
-                {
-                    new SqlParameter("@p_action_type", "005"),
-                    new SqlParameter("@p_booking_id",  bookingId),
-                    new SqlParameter("@p_receiver_id", receiverId),
-                    pStatus, pMessage
-                };
-
-                _db.ExecuteProcedure(_proc, parameters);
-                string code = pStatus.Value?.ToString();
-
-                return code == "1"
-                    ? Response.Success(null, "Messages marked as read.")
-                    : Response.Fail(pMessage.Value?.ToString() ?? "Failed.");
+                var filter = Builders<OutSessionMessageModel>.Filter.And(
+                    Builders<OutSessionMessageModel>.Filter.Eq(m => m.BookingId, bookingId),
+                    Builders<OutSessionMessageModel>.Filter.Eq(m => m.ReceiverId, receiverId),
+                    Builders<OutSessionMessageModel>.Filter.Eq(m => m.IsRead, false)
+                );
+                var update = Builders<OutSessionMessageModel>.Update.Set(m => m.IsRead, true);
+                _messages.UpdateMany(filter, update);
+                return Response.Success(null, "Messages marked as read.");
             }
-            catch (Exception ex)
-            {
-                return Response.Error(ex.Message);
-            }
+            catch (Exception ex) { return Response.Error(ex.Message); }
         }
 
-        // ════════════════════════════════════════════════════════════════
-        //  006 — ADMIN DELETE WITH REASON
-        //  Business rule: Admin only. Soft delete. Reason must be provided.
-        // ════════════════════════════════════════════════════════════════
+        // 006 – ADMIN DELETE WITH REASON
         public Response AdminDeleteMessage(OutSessionMessageRequestApi request, int adminId)
         {
             try
@@ -237,29 +144,23 @@ namespace PeerLearningAndTutorialSystem.DataAccess
                 if (string.IsNullOrWhiteSpace(request.AdminDeleteReason))
                     return Response.Fail("Deletion reason is required.");
 
-                var pStatus = _out.ResultStatusCode();
-                var pMessage = _out.ExceptionMessage();
+                _messages.UpdateOne(m => m.OutMessageId == request.OutMessageId,
+                    Builders<OutSessionMessageModel>.Update
+                        .Set(m => m.IsDeleted, true)
+                        .Set(m => m.AdminDeleteReason, request.AdminDeleteReason.Trim())
+                        .Set(m => m.DeletedAt, NowIso())
+                        .Set(m => m.UpdatedAt, NowIso())
+                        .Set(m => m.UpdatedBy, adminId));
 
-                var parameters = new[]
-                {
-                    new SqlParameter("@p_action_type", "006"),
-                    new SqlParameter("@p_message_id",  (object)request.OutMessageId ?? DBNull.Value),
-                    new SqlParameter("@p_sender_id",   adminId),
-                    new SqlParameter("@p_admin_reason", request.AdminDeleteReason.Trim()),
-                    pStatus, pMessage
-                };
-
-                _db.ExecuteProcedure(_proc, parameters);
-                string code = pStatus.Value?.ToString();
-
-                return code == "1"
-                    ? Response.Success(null, "Message removed by admin.")
-                    : Response.Fail(pMessage.Value?.ToString() ?? "Delete failed.");
+                return Response.Success(null, "Message removed by admin.");
             }
-            catch (Exception ex)
-            {
-                return Response.Error(ex.Message);
-            }
+            catch (Exception ex) { return Response.Error(ex.Message); }
+        }
+
+        public Response GetAllMessages()
+        {
+            var all = _messages.Find(m => !m.IsDeleted).ToList();
+            return Response.Success(all);
         }
     }
 }
