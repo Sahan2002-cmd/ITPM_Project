@@ -28,5 +28,8 @@ namespace PeerLearningAndTutorialSystem.Models.RequestApiModels
         // Forgot password / OTP flow
         public string OtpCode { get; set; }
         public string NewPassword { get; set; }
+
+        public string PhoneNumber { get; set; }
+
     }
 }
