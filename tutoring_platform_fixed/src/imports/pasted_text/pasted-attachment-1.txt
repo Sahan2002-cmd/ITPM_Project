@@ -1,0 +1,345 @@
+
+
+
+PEER LEARNING & TUTORING SYSTEM
+Project Summary Report
+
+
+Module: IT3040 – IT Project Management  |  Semester 1
+BSc (Hons) in Information Technology – Year 3  |  SLIIT
+Date: March 2026
+
+
+Role	Detail
+Project	Peer Learning & Tutoring System
+Module Code	IT3040 – ITPM
+Team Size	4 Members
+Timeframe	11 Weeks
+Platform	Web Application (ASP.NET MVC C# + React + SQL Server)
+Target Users	Admin, Tutor, Student
+ 
+1. Project Overview
+The Peer Learning and Tutoring System is a web-based platform developed as a Year 3 IT project for SLIIT. The platform connects university students who need academic help with peer tutors who can provide it. The system manages the full tutoring lifecycle from tutor discovery and booking through to live sessions, payments, ratings, and session recordings.
+
+The project addresses a real university student need: reducing the friction in finding, booking, and learning from peer tutors. It replaces manual coordination via WhatsApp or email with a structured, feature-rich platform.
+
+1.1 Project Requirements (IT3040)
+•	Each group proposes a practically feasible project delivering clear value to university students.
+•	The solution may be a web, mobile, or desktop application.
+•	Scope must be appropriate for a team of up to four members within an 11-week timeframe.
+•	Each member must own at least one independently demonstrable feature/module.
+•	Each member's component must include UI design, database integration, input validation, and testing.
+
+1.2 Assessment Structure
+Assessment	Description
+Proposal Presentation	Responsibility Matrix — each member's module scope, inputs, outputs, user outcomes
+Progress Review 1	UI Business Rules Document — access control, validation, workflow rules per screen
+Progress Review 2	Working implementation demo of each member's module
+Final Presentation	Full demo + Git commits + project management tool + Playwright automated tests
+Bonus Mark	Top 30 projects shortlisted; top 10 selected receive 30 bonus marks
+ 
+2. Technology Stack
+Layer	Technology	Purpose
+Backend	ASP.NET MVC C# (.NET 4.7.2)	API controllers, business logic, stored procedure calls
+Frontend	React + Vite	User interface, routing, API calls via Axios
+Database	SQL Server (SSMS 22)	All data storage via stored procedures
+Real-time	SignalR	Live chat, real-time notifications
+Authentication	JWT + Google OAuth 2.0	Token-based auth, social login
+Payment	Stripe API	Session payment processing, PDF invoice
+Email	SMTP (Gmail)	OTP emails, booking notifications
+PDF Reports	PdfReportGenerator (iTextSharp)	Admin downloadable reports
+Backend IDE	Visual Studio 2022	C# development environment
+Frontend IDE	VS Code	React development environment
+Testing	Playwright	Automated end-to-end testing (required for final)
+ 
+3. System Actors
+The system has three main actors, each with a distinct role and set of permissions.
+
+Admin
+•	Manages all users — approve, edit, deactivate accounts.
+•	Views all bookings, payments, and platform activity.
+•	Downloads PDF reports: user lists, booking summaries, revenue analytics.
+•	Deletes inappropriate content (session notes, messages) with reason logging.
+•	Monitors tutor verification status and platform health.
+
+Tutor
+•	Registers and sets up a profile with subjects, bio, and hourly rate.
+•	Awaits admin verification before becoming searchable.
+•	Manages availability calendar — adds and removes time slots.
+•	Accepts or rejects student booking requests.
+•	Participates in live sessions via real-time chat.
+•	Submits session notes after each completed session.
+•	Receives payments automatically after session completion.
+
+Student
+•	Registers and browses verified tutors by subject.
+•	Views tutor availability and submits booking requests.
+•	Pays for sessions via Stripe before confirmation.
+•	Joins live sessions and uses real-time chat and file sharing.
+•	Reads session notes submitted by the tutor.
+•	Rates and reviews the tutor after session completion.
+•	Views upcoming sessions and learning history from dashboard.
+ 
+4. Module Breakdown by Member
+The project is divided into five modules. Each member owns one module end-to-end — from database stored procedure through to UI screens.
+
+Shared — Authentication, Payment & Reports
+This layer is used by all members and is not owned by a single person. It provides the foundation that every module depends on.
+
+Feature	Description
+User Registration	Students and tutors self-register. Admin registers via DB only.
+Login (JWT)	Email + password login. Returns a JWT token used for all protected API calls.
+Google OAuth 2.0	Login or register using a Google account. Auto-creates profile on first use.
+Forgot Password	3-step flow: request OTP via email, verify OTP, reset password.
+Email Verification	Verification email sent on registration. Account locked until verified.
+Role-Based Access	Admin / Tutor / Student roles enforced at controller and stored procedure level.
+Stripe Payment	Student pays for session. Stripe webhook auto-syncs payment status.
+PDF Invoice	Small PDF invoice auto-generated after successful payment.
+Admin Reports	Downloadable PDF reports: users, bookings, revenue, top tutors.
+
+Member 1 — Tutor Profile & Availability
+CRUD	Action	Business Rule
+CREATE	Register tutor profile	Status set to Pending. Admin must approve before profile is visible.
+READ	Browse tutors	Only Active and Verified tutors appear in search results.
+UPDATE	Edit profile / rate	Tutor can edit own profile only. Admin can edit any.
+DELETE	Deactivate profile	Soft delete only. Past session records are preserved.
+CREATE	Add availability slot	Date must be in the future. No overlapping slots allowed.
+READ	View free slots	Student sees only Free slots when booking.
+UPDATE	Slot status change	Slot auto-changes to Booked when a booking is confirmed.
+DELETE	Remove slot	Only Free slots can be deleted. Booked slots cannot be removed.
+
+New additions (bonus scope)
+•	AI tutor recommendation engine based on student booking history and subject preferences.
+•	Weekly recurring availability — tutor sets a weekly pattern instead of adding slots one by one.
+•	Block-out dates feature — tutor marks holiday periods as unavailable.
+
+Member 2 — Session Booking & Scheduling
+CRUD	Action	Business Rule
+CREATE	Submit booking request	Student selects subject, tutor, date, time. Status = Pending.
+READ	View booking history	Student sees own bookings only. Tutor sees assigned bookings only.
+UPDATE	Tutor accepts/rejects	Acceptance changes status to Confirmed and marks slot as Booked.
+UPDATE	Student cancels	Cancellation only allowed more than 2 hours before session start.
+UPDATE	Session completes	Status changes to Completed after session end time passes.
+DELETE	Hard delete	Bookings are never hard deleted. Cancelled bookings kept for history.
+
+Notification system (Member 2 responsibility)
+•	SignalR real-time alert when tutor accepts or rejects a booking.
+•	Email confirmation sent to both student and tutor on booking confirmation.
+•	Session reminder notification sent 24 hours before the session starts.
+•	Cancellation push notification sent immediately to the other party.
+
+Member 3 — Real-Time Chat & Resource Sharing
+This module is the communication and collaboration layer of the platform. It activates after a booking is confirmed and handles everything that happens during and after a live session.
+
+Entity	CRUD	Business Rule
+In-Session Message	CREATE — send message	Only allowed while session status is Active. Powered by SignalR.
+In-Session Message	READ — load chat history	Both matched student and tutor can access. No other users.
+In-Session Message	UPDATE — edit message	Sender can edit within 5 minutes only. Edited label shown.
+In-Session Message	DELETE — remove message	Soft delete only. Hidden from UI but kept in DB for admin audit.
+Out-Session Message	CREATE — send follow-up	Session must be Completed or Upcoming. Not real-time, REST API.
+Out-Session Message	UPDATE — edit message	Sender can edit within 30 minutes. Locked after that.
+File Resource	CREATE — upload file	Max 5MB. Allowed types: PDF, DOCX, PNG, JPG only.
+File Resource	READ — materials library	Both student and tutor can view and download session files.
+File Resource	UPDATE — rename file	Only the uploader can rename their own file.
+File Resource	DELETE — remove file	Uploader or tutor only. Removed from server and database.
+Session Note	CREATE — tutor submits	Must be submitted within 24 hours of session ending.
+Session Note	READ — student views	Visible to student only after session status is Completed.
+Session Note	UPDATE — edit note	Tutor can edit within 24 hours. Locked after that.
+Session Note	DELETE — admin removes	Admin only. Soft delete with mandatory reason logged.
+
+ChatHub.cs — SignalR
+•	Separate Hubs/ folder added to project structure for ChatHub.cs.
+•	Students and tutors join a SignalR group named session_{sessionId} on page load.
+•	Messages broadcast instantly to the matched pair only — no other users receive them.
+•	No page refresh needed. Chat closes automatically when session ends.
+
+Member 4 — Rating & Analytics
+CRUD	Action	Business Rule
+CREATE	Submit rating	Only the student can rate. Only after session status = Completed.
+READ	View ratings on profile	All users can see tutor ratings. Average auto-calculated.
+UPDATE	Edit rating	Student can edit their own rating within 7 days of submission.
+DELETE	Remove rating	Admin only. Soft delete with reason required.
+
+Analytics Dashboard (Member 4 responsibility)
+•	Total sessions count, total revenue, active tutors, registered students — summary cards.
+•	Monthly sessions line chart — shows platform growth over time.
+•	Subject popularity bar chart — which subjects are booked most.
+•	Top-rated tutors leaderboard — average rating, total sessions, subject.
+•	Student engagement metrics — average sessions per student per month.
+•	All analytics data served from PLT_ANALYTICS_PROC.sql stored procedure.
+
+Member 5 — Recording & Student Dashboard
+CRUD	Action	Business Rule
+CREATE	Save recording metadata	URL, file size, duration saved after session ends.
+READ	Student playback	Only the matched student can access their session recording.
+UPDATE	Extend expiry	Admin can extend the 30-day expiry on request.
+DELETE	Expire recording	Auto-deactivated after 30 days. Soft delete — URL kept in DB.
+
+Student Dashboard (Member 5 responsibility)
+•	Upcoming sessions widget — next 3 sessions with tutor name, subject, date, time.
+•	Past sessions list — completed sessions with access to notes and recordings.
+•	Learning progress tracker — total hours studied, subjects covered, sessions completed.
+•	Total hours studied widget — cumulative learning time displayed prominently.
+•	Subjects studied breakdown — pie or bar chart of subjects by session count.
+•	All dashboard data served from PLT_DASHBOARD_PROC.sql stored procedure.
+ 
+5. Project Folder Structure
+The backend follows a strict 5-layer architecture identical to the reference GymManagement project pattern. All files are flat inside each folder — no sub-folders within the 5 main layers.
+
+Folder	Purpose	Key Files
+Models/	Database column representations and request API models	UserModel, BookingModel, all member models + RequestApiModels/ subfolder
+Interfaces/	All method contracts — one interface per DA class	IUser, ITutorProfile, IBooking, IInSessionMessage, IRating, IRecording, IAnalytics, IDashboard, INotification, IPayment
+DataAccess/	All SQL stored procedure calls — query control layer	DAUser, DATutorProfile, DABooking, DAInSessionMessage, DARating, DARecording, DAAnalytics, DADashboard, DANotification, DAPayment
+BusinessLayer/	Shared logic used across all modules	JwtHelper, EmailHelper, StripePaymentHelper, PdfReportGenerator
+Controllers/	HTTP endpoint handlers — one controller per DA class	UserController, TutorProfileController, BookingController, InSessionMessageController, RatingController, RecordingController, AnalyticsController, DashboardController, NotificationController, PaymentController, ReportController
+DatabaseConnectivity/	Database connection and stored procedure execution engine	DBConnect.cs — ProcedureRead and ProcedureExecute methods
+App_Start/	Dependency injection registration	UnityConfig.cs — maps every Interface to its DA class
+Hubs/	SignalR real-time hub (new folder — outside the 5 main layers)	ChatHub.cs — handles join group, send message, broadcast
+
+5.1 Stored Procedures (SSMS)
+Every database operation goes through a stored procedure. No inline SQL in the C# code.
+
+Stored Procedure	Owner	Action Types
+PLT_USER_PROC	Shared	001 Get All, 002 Get By ID, 003 Register, 004 Edit, 005 Delete, 006 IsAdmin, 007 Approve, 008 Login, 009 Google OAuth, 010 Request OTP, 011 Verify OTP, 012 Reset Password
+PLT_PAYMENT_PROC	Shared	001 Create Intent, 002 Confirm, 003 Refund, 004 Get History, 005 Webhook Sync
+PLT_REPORT_PROC	Shared	001 Users Report, 002 Bookings Report, 003 Revenue Report, 004 Top Tutors
+PLT_TUTOR_PROFILE_PROC	Member 1	001 Get All, 002 Get By ID, 003 Create, 004 Edit, 005 Delete, 006 Verify, 007 Search
+PLT_AVAILABILITY_PROC	Member 1	001 Get By Tutor, 002 Add Slot, 003 Update Status, 004 Delete Slot
+PLT_BOOKING_PROC	Member 2	001 Get All, 002 Get By Student, 003 Get By Tutor, 004 Create, 005 Accept, 006 Reject, 007 Cancel, 008 Complete
+PLT_NOTIFICATION_PROC	Member 2	001 Create, 002 Get By User, 003 Mark Read, 004 Delete
+PLT_IN_SESSION_MESSAGE_PROC	Member 3	001 Get History, 002 Send, 003 Edit, 004 Soft Delete
+PLT_OUT_SESSION_MESSAGE_PROC	Member 3	001 Get Thread, 002 Send, 003 Edit, 004 Soft Delete, 005 Mark Read
+PLT_FILE_RESOURCE_PROC	Member 3	001 Get By Session, 002 Upload, 003 Rename, 004 Delete
+PLT_SESSION_NOTE_PROC	Member 3	001 Get By Booking, 002 Submit, 003 Edit, 004 Admin Delete
+PLT_RATING_PROC	Member 4	001 Get By Tutor, 002 Submit, 003 Edit, 004 Admin Delete
+PLT_ANALYTICS_PROC	Member 4	001 Summary Stats, 002 Monthly Sessions, 003 Subject Popularity, 004 Top Tutors, 005 Student Engagement
+PLT_RECORDING_PROC	Member 5	001 Get By Booking, 002 Save, 003 Extend Expiry, 004 Expire
+PLT_DASHBOARD_PROC	Member 5	001 Upcoming Sessions, 002 Past Sessions, 003 Progress Stats, 004 Subject Breakdown
+ 
+6. Database Tables
+All 15 tables are in SQL Server. Passwords are bcrypt hashed. Soft delete pattern used throughout — records are never hard deleted.
+
+Table	Owner	Key Columns
+Roles	Shared	roleId, roleName (Admin / Tutor / Student)
+Users	Shared	userId, fullName, email, password_hash, roleId, status, isEmailVerified
+GoogleAccounts	Shared	googleAccountId, userId, googleId, googleEmail, linkedAt
+PasswordResetTokens	Shared	resetId, userId, email, resetCode, expiresAt, isUsed
+Payments	Shared	paymentId, bookingId, studentId, stripePaymentIntentId, amount, status, invoicePdfPath
+TutorProfiles	Member 1	tutorProfileId, userId, bio, hourlyRate, averageRating, isVerified, status
+TutorSubjects	Member 1	tutorSubjectId, tutorProfileId, subjectName
+Availabilities	Member 1	availabilityId, tutorProfileId, availableDate, startTime, endTime, status
+Bookings	Member 2	bookingId, studentId, tutorProfileId, subject, bookingDate, startTime, endTime, status
+Notifications	Member 2	notificationId, userId, message, type, isRead, createdAt
+InSessionMessages	Member 3	messageId, bookingId, senderId, receiverId, messageText, sentAt, editedAt, isDeleted
+OutSessionMessages	Member 3	outMessageId, bookingId, senderId, receiverId, messageText, isRead, sentAt, isDeleted
+FileResources	Member 3	fileId, bookingId, uploadedBy, fileName, filePath, fileSize, fileType, isDeleted
+SessionNotes	Member 3	noteId, bookingId, tutorId, topicsCovered, homework, nextSteps, submittedAt, isDeleted
+Ratings	Member 4	ratingId, bookingId, studentId, tutorProfileId, starRating, review, createdAt
+Recordings	Member 5	recordingId, bookingId, tutorId, studentId, recordingUrl, durationMinutes, expiresAt, isActive
+ 
+7. Key Business Rules
+Business rules are functional conditions that control how each UI operates. They must be specific and testable as per IT3040 requirements.
+
+7.1 Access Control Rules
+•	Only Admin can: approve/reject tutors, delete any content, download reports, view all users.
+•	Only Tutor can: submit session notes, manage own availability, accept/reject bookings.
+•	Only Student can: create bookings, submit ratings, access own recording playback.
+•	Both Student and Tutor can: send messages, upload files, view their shared session data.
+
+7.2 Validation Rules
+•	Booking date must be in the future. Duration must be between 30 and 180 minutes.
+•	File uploads limited to PDF, DOCX, PNG, JPG. Maximum file size is 5MB.
+•	Star rating must be between 1 and 5. Review text is optional.
+•	Password minimum 8 characters. Email must match SLIIT format for tutors.
+•	OTP code expires after 10 minutes. Can only be used once.
+
+7.3 Workflow Rules
+•	Booking status flow: Pending → Confirmed → Active → Completed (or Cancelled at any stage before Active).
+•	Tutor profile status flow: Pending → Active (or Suspended by admin).
+•	Availability slot status: Free → Booked (on confirmation), Booked → Free (on cancellation).
+•	Session note is locked 24 hours after submission. Student cannot read it until session is Completed.
+•	In-session messages can only be edited within 5 minutes of sending.
+•	Out-session messages can only be edited within 30 minutes of sending.
+
+7.4 Capacity & Limit Rules
+•	One booking per student per tutor per time slot — no duplicate bookings.
+•	One session note per booking — tutor cannot submit multiple notes.
+•	One rating per booking — student cannot rate the same session twice.
+•	Session recordings expire after 30 days and become inaccessible.
+
+7.5 Notification & System Response Rules
+•	Student receives email and SignalR notification when tutor accepts or rejects booking.
+•	Both parties receive a session reminder 24 hours before start time.
+•	Payment confirmation email with PDF invoice sent immediately after successful Stripe payment.
+•	Admin receives alert when a new tutor registers and awaits verification.
+ 
+8. Final Presentation Evidence Requirements
+Per the IT3040 project requirements, each student must demonstrate the following at the final presentation:
+
+Evidence	Tool	Requirement
+Version Control	Git / GitHub	Meaningful commits related to each member's module. Branch per member.
+Project Management	Trello or GitHub Projects	Task board showing planning and ownership per member.
+Automated Testing	Playwright (web)	Tests validating key features and user journeys of the solution.
+
+8.1 Playwright Test Coverage Plan
+•	Shared: Login test, Register test, Google OAuth test, Forgot Password 3-step test.
+•	Member 1: Tutor profile create test, Availability add/delete test.
+•	Member 2: Full booking flow test — create, confirm, cancel.
+•	Member 3: Send message test, File upload test, Session note submit test.
+•	Member 4: Submit rating test, View analytics dashboard test.
+•	Member 5: View recording test, Dashboard stats load test.
+
+9. Bonus Mark Scope Improvements
+To qualify for the top 30 shortlist and bonus 30 marks, the following features have been added beyond the basic requirements:
+
+Addition	Why it stands out
+SignalR real-time notifications	Used beyond chat — booking alerts, session reminders, live status updates. Shows advanced SignalR usage.
+AI tutor recommendation engine	Suggests tutors based on student booking history and subject preferences. Goes beyond standard CRUD.
+Stripe Webhook handler	Auto-syncs payment status without manual confirmation. Real-world payment integration pattern.
+Analytics dashboard with charts	Chart.js charts for monthly sessions, subject popularity, top tutors. Makes admin panel genuinely useful.
+Email verification on registration	Blocks unverified accounts. Standard security practice rarely implemented by student projects.
+Admin tutor approval workflow	Tutors start as Pending and must be verified. Adds a realistic platform trust layer.
+Student learning dashboard	Progress tracker, hours studied, subject breakdown. Adds real user value beyond session management.
+Notifications module (Member 2)	Separate Notification table, interface, DA, controller and stored procedure. Real-time + email combined.
+ 
+10. Complete File List
+
+Models/ (19 files)
+File	Owner
+Response.cs, ProcedureDBModel.cs	Shared
+UserModel.cs, RoleModel.cs, PaymentModel.cs	Shared
+TutorProfileModel.cs, TutorSubjectModel.cs, AvailabilityModel.cs	Member 1
+BookingModel.cs, NotificationModel.cs	Member 2
+InSessionMessageModel.cs, OutSessionMessageModel.cs, FileResourceModel.cs, SessionNoteModel.cs	Member 3
+RatingModel.cs, AnalyticsModel.cs	Member 4
+RecordingModel.cs, DashboardModel.cs	Member 5
+RequestApiModels/ — one RequestApi.cs per model above	All members
+
+Interfaces/ (13 files)
+File	Owner
+IUser.cs, IPayment.cs	Shared
+ITutorProfile.cs, IAvailability.cs	Member 1
+IBooking.cs, INotification.cs	Member 2
+IInSessionMessage.cs, IOutSessionMessage.cs, IFileResource.cs, ISessionNote.cs	Member 3
+IRating.cs, IAnalytics.cs	Member 4
+IRecording.cs, IDashboard.cs	Member 5
+
+DataAccess/ (13 files — mirrors Interfaces/)
+DAUser, DAPayment, DATutorProfile, DAAvailability, DABooking, DANotification, DAInSessionMessage, DAOutSessionMessage, DAFileResource, DASessionNote, DARating, DAAnalytics, DARecording, DADashboard.
+
+Controllers/ (14 files)
+UserController, PaymentController, ReportController, TutorProfileController, AvailabilityController, BookingController, NotificationController, InSessionMessageController, OutSessionMessageController, FileResourceController, SessionNoteController, RatingController, AnalyticsController, RecordingController, DashboardController.
+
+BusinessLayer/ (4 files — shared)
+JwtHelper.cs, EmailHelper.cs, StripePaymentHelper.cs, PdfReportGenerator.cs.
+
+Other files
+File / Folder	Purpose
+DatabaseConnectivity/DBConnect.cs	Stored procedure execution engine — ProcedureRead and ProcedureExecute
+App_Start/UnityConfig.cs	Dependency injection — maps every interface to its DA class
+Hubs/ChatHub.cs	SignalR hub for real-time in-session chat (new folder outside the 5 layers)
+Global.asax.cs	Application startup — registers Unity, CORS headers for React frontend
+Web.config	Connection string, JWT settings, SMTP settings, Stripe keys, Google OAuth keys
+
+
+End of Project Summary Report
