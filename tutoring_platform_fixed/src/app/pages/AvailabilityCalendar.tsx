@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Check, Save, Clock, Plus, Trash2, AlertCircle } from "lucide-react";
+import { useAuth } from "../contexts/AuthContext";
+import { getTutorProfileByUserId, createAvailabilitySlot, getAvailabilityByTutor } from "../services/Module_01_API";
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const HOURS = Array.from({ length: 24 }, (_, i) => {
@@ -7,6 +9,36 @@ const HOURS = Array.from({ length: 24 }, (_, i) => {
   const ampm = i < 12 ? "AM" : "PM";
   return `${h}:00 ${ampm}`;
 });
+
+const DAY_TO_DOW: Record<string, number> = {
+  Sunday: 0, Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6,
+};
+
+// Returns the next 4 calendar dates (including today) for a given day name
+function getNextFourOccurrences(dayName: string): Date[] {
+  const targetDow = DAY_TO_DOW[dayName];
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const daysUntil = (targetDow - today.getDay() + 7) % 7;
+  const first = new Date(today);
+  first.setDate(today.getDate() + daysUntil);
+  return Array.from({ length: 4 }, (_, i) => {
+    const d = new Date(first);
+    d.setDate(first.getDate() + i * 7);
+    return d;
+  });
+}
+
+// Combine a base date and a time string like "9:00 AM" into a Date
+function buildDateTime(date: Date, timeStr: string): Date {
+  const [rawTime, period] = timeStr.split(" ");
+  let [h, m] = rawTime.split(":").map(Number);
+  if (period === "PM" && h !== 12) h += 12;
+  if (period === "AM" && h === 12) h = 0;
+  const d = new Date(date);
+  d.setHours(h, m, 0, 0);
+  return d;
+}
 
 // Convert a time string like "9:00 AM" to minutes from midnight for comparison
 function toMinutes(time: string): number {
@@ -71,14 +103,31 @@ function validateAllSchedule(schedule: Schedule, enabled: Record<string, boolean
 }
 
 export default function AvailabilityCalendar() {
+  const { user } = useAuth();
+  const [tutorProfileId, setTutorProfileId] = useState<string>("");
   const [schedule, setSchedule] = useState<Schedule>(defaultSchedule);
   const [enabled, setEnabled] = useState<Record<string, boolean>>({
     Monday: true, Tuesday: true, Wednesday: true, Thursday: true, Friday: true, Saturday: false, Sunday: false,
   });
   const [saved, setSaved] = useState(false);
-  const [timezone, setTimezone] = useState("America/New_York");
+  const [saving, setSaving] = useState(false);
+  const [timezone, setTimezone] = useState("Asia/Colombo");
   const [slotErrors, setSlotErrors] = useState<SlotErrors>({});
   const [saveError, setSaveError] = useState("");
+
+  // Fetch the tutor's MongoDB profile ID so we can create availability slots
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (!user?.userId) return;
+      try {
+        const res = await getTutorProfileByUserId(user.userId);
+        if (res?.StatusCode === 1 && res.Data?.Id) {
+          setTutorProfileId(res.Data.Id);
+        }
+      } catch { /* non-critical; save button will show an error */ }
+    };
+    fetchProfile();
+  }, [user?.userId]);
 
   const toggleDay = (day: string) => {
     setEnabled(e => ({ ...e, [day]: !e[day] }));
@@ -128,7 +177,7 @@ export default function AvailabilityCalendar() {
     });
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setSaveError("");
     const allErrs = validateAllSchedule(schedule, enabled);
     if (Object.keys(allErrs).length > 0) {
@@ -136,8 +185,88 @@ export default function AvailabilityCalendar() {
       setSaveError("Please fix the highlighted errors before saving.");
       return;
     }
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
+    if (!tutorProfileId) {
+      setSaveError("Could not find your tutor profile. Please refresh and try again.");
+      return;
+    }
+
+    setSaving(true);
+
+    // ── 1. Fetch currently saved slots so we can skip duplicates ──────────
+    let existingSlots: { StartTime: string }[] = [];
+    try {
+      const existingRes = await getAvailabilityByTutor(tutorProfileId as any);
+      if (existingRes?.StatusCode === 1 && Array.isArray(existingRes.Data)) {
+        existingSlots = existingRes.Data;
+      }
+    } catch { /* non-critical — proceed and let backend overlap check handle it */ }
+
+    const isAlreadySaved = (startIso: string): boolean => {
+      const ms = new Date(startIso).getTime();
+      return existingSlots.some(s => Math.abs(new Date(s.StartTime).getTime() - ms) < 60_000);
+    };
+
+    // ── 2. Build the candidate list ───────────────────────────────────────
+    const now = new Date();
+    const slotsToCreate: { TutorProfileId: string; Date: string; StartTime: string; EndTime: string }[] = [];
+
+    for (const day of DAYS) {
+      if (!enabled[day] || !schedule[day]?.length) continue;
+      for (const occurrence of getNextFourOccurrences(day)) {
+        for (const slot of schedule[day]) {
+          const startTime = buildDateTime(occurrence, slot.start);
+          const endTime = buildDateTime(occurrence, slot.end);
+          if (startTime <= now) continue; // already in the past
+          if (isAlreadySaved(startTime.toISOString())) continue; // already in DB
+          slotsToCreate.push({
+            TutorProfileId: tutorProfileId,
+            Date: occurrence.toISOString(),
+            StartTime: startTime.toISOString(),
+            EndTime: endTime.toISOString(),
+          });
+        }
+      }
+    }
+
+    if (slotsToCreate.length === 0) {
+      setSaveError("Schedule is already up to date. No new slots to create.");
+      setSaving(false);
+      return;
+    }
+
+    // ── 3. POST only the new slots ─────────────────────────────────────────
+    let created = 0;
+    let failed = 0;
+    let authError = false;
+
+    for (const slot of slotsToCreate) {
+      try {
+        const res = await createAvailabilitySlot(slot);
+        if (res?.StatusCode === 1) created++;
+        else failed++;
+      } catch (err: any) {
+        const msg: string = err?.message ?? "";
+        if (msg.includes("403") || msg.toLowerCase().includes("forbidden")) {
+          authError = true;
+        }
+        failed++;
+      }
+    }
+
+    setSaving(false);
+
+    if (authError) {
+      setSaveError("Permission denied (403). Please log out and log back in as a tutor, then try again.");
+      return;
+    }
+
+    if (created > 0) {
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+      if (failed > 0) setSaveError(`${created} new slot(s) saved. ${failed} could not be created (overlap or error).`);
+    } else {
+      setSaveError(`All ${slotsToCreate.length} new slot(s) failed. Please log out and log back in, then retry.`);
+    }
   };
 
   const totalSlots = Object.values(schedule).flat().length;
@@ -152,9 +281,10 @@ export default function AvailabilityCalendar() {
         <div className="flex flex-col items-end gap-1.5">
           <button
             onClick={handleSave}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium transition-all ${saved ? "bg-emerald-500 text-white" : "bg-violet-600 text-white hover:bg-violet-700"}`}
+            disabled={saving}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium transition-all ${saved ? "bg-emerald-500 text-white" : saving ? "bg-violet-400 text-white cursor-not-allowed" : "bg-violet-600 text-white hover:bg-violet-700"}`}
           >
-            {saved ? <><Check className="w-4 h-4" /> Saved!</> : <><Save className="w-4 h-4" /> Save Schedule</>}
+            {saved ? <><Check className="w-4 h-4" /> Saved!</> : saving ? <><Clock className="w-4 h-4 animate-spin" /> Saving...</> : <><Save className="w-4 h-4" /> Save Schedule</>}
           </button>
           {saveError && (
             <p className="text-xs text-rose-600 flex items-center gap-1">
@@ -180,6 +310,7 @@ export default function AvailabilityCalendar() {
           <p className="text-sm text-slate-500 mb-2">Timezone</p>
           <select value={timezone} onChange={e => setTimezone(e.target.value)}
             className="w-full text-sm border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-violet-500/20 bg-white">
+            <option value="Asia/Colombo">Sri Lanka (SLST, GMT+5:30)</option>
             <option value="America/New_York">Eastern (ET)</option>
             <option value="America/Chicago">Central (CT)</option>
             <option value="America/Denver">Mountain (MT)</option>

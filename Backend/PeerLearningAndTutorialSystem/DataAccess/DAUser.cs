@@ -63,74 +63,6 @@ namespace PeerLearningAndTutorialSystem.DataAccess
         }
 
         // 003 – REGISTER (sends OTP to email and phone)
-        //public Response Register(UserRequestApi request)
-        //{
-        //    try
-        //    {
-        //        if (string.IsNullOrWhiteSpace(request.FullName) ||
-        //            string.IsNullOrWhiteSpace(request.Email) ||
-        //            string.IsNullOrWhiteSpace(request.Password) ||
-        //            string.IsNullOrWhiteSpace(request.PhoneNumber))
-        //            return Response.Fail("Full name, email, phone number, and password are required.");
-
-        //        // Check confirmation checkbox
-        //        if (!request.ConfirmDetails)
-        //            return Response.Fail("You must confirm that the details are correct.");
-
-        //        // Validate Center
-        //        var validCenters = new[] { "Malabe", "Matara", "Jaffna", "Kandy" };
-        //        if (string.IsNullOrWhiteSpace(request.Center) || !validCenters.Contains(request.Center))
-        //            return Response.Fail("Please select a valid SLIIT center (Malabe, Matara, Jaffna, Kandy).");
-
-        //        // Check duplicate email
-        //        if (_users.Find(u => u.Email == request.Email.ToLower().Trim()).Any())
-        //            return Response.Fail("Email already registered.");
-
-        //        var user = new UserModel
-        //        {
-        //            UserId = CounterHelper.GetNextSequence("userId"),
-        //            FullName = request.FullName.Trim(),
-        //            Email = request.Email.ToLower().Trim(),
-        //            PhoneNumber = request.PhoneNumber.Trim(),
-        //            PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password, 12),
-        //            RoleId = request.RoleId ?? 3,
-        //            RoleName = request.RoleId == 1 ? "Admin" : (request.RoleId == 2 ? "Tutor" : "Student"),
-        //            Status = "Pending",
-        //            IsEmailVerified = false,
-        //            ProfileImage = null,
-        //            Center = request.Center,
-        //            // For students, store semester; for tutors/admins it can be null or empty
-        //            Semester = (request.RoleId == 3) ? request.Semester : null
-        //        };
-
-        //        // Validate semester for students
-        //        if (user.RoleId == 3 && string.IsNullOrWhiteSpace(user.Semester))
-        //            return Response.Fail("Semester is required for student registration.");
-
-        //        SetTimestamps(user);
-        //        _users.InsertOne(user);
-
-        //        // Generate and store OTP
-        //        string otp = EmailHelper.GenerateOtp();
-        //        var token = new VerificationToken
-        //        {
-        //            Email = user.Email,
-        //            PhoneNumber = user.PhoneNumber,
-        //            OtpCode = otp,
-        //            ExpiresAt = DateTime.UtcNow.AddMinutes(10),
-        //            Used = false,
-        //            Purpose = "registration"
-        //        };
-        //        _verificationTokens.InsertOne(token);
-
-        //        // Send OTPs
-        //        new EmailHelper().SendRegistrationOtpEmail(user.Email, otp);
-        //        SmsHelper.SendOtp(user.PhoneNumber, otp);
-
-        //        return Response.Success(null, "Registration successful. Please verify your email and phone using the OTP sent.");
-        //    }
-        //    catch (Exception ex) { return Response.Error(ex.Message); }
-        //}
         public Response Register(UserRequestApi request)
         {
             try
@@ -140,15 +72,6 @@ namespace PeerLearningAndTutorialSystem.DataAccess
                     string.IsNullOrWhiteSpace(request.Password) ||
                     string.IsNullOrWhiteSpace(request.PhoneNumber))
                     return Response.Fail("Full name, email, phone number, and password are required.");
-
-                // Check confirmation checkbox
-                if (!request.ConfirmDetails)
-                    return Response.Fail("You must confirm that the details are correct.");
-
-                // Validate Center
-                var validCenters = new[] { "Malabe", "Matara", "Jaffna", "Kandy" };
-                if (string.IsNullOrWhiteSpace(request.Center) || !validCenters.Contains(request.Center))
-                    return Response.Fail("Please select a valid SLIIT center (Malabe, Matara, Jaffna, Kandy).");
 
                 // Check duplicate email
                 if (_users.Find(u => u.Email == request.Email.ToLower().Trim()).Any())
@@ -163,51 +86,33 @@ namespace PeerLearningAndTutorialSystem.DataAccess
                     PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password, 12),
                     RoleId = request.RoleId ?? 3,
                     RoleName = request.RoleId == 1 ? "Admin" : (request.RoleId == 2 ? "Tutor" : "Student"),
-                    Status = "Active",                     // ✅ Active immediately
-                    IsEmailVerified = true,                // ✅ No OTP needed
-                    ProfileImage = null,
-                    Center = request.Center,
-                    Semester = (request.RoleId == 3) ? request.Semester : null
+                    Status = "Active",       // OTP verification disabled — activate immediately
+                    IsEmailVerified = true,
+                    ProfileImage = null
                 };
-
-                // Validate semester for students
-                if (user.RoleId == 3 && string.IsNullOrWhiteSpace(user.Semester))
-                    return Response.Fail("Semester is required for student registration.");
-
                 SetTimestamps(user);
                 _users.InsertOne(user);
 
-                // ✅ Send registration success email (no OTP)
-                new EmailHelper().SendRegistrationSuccessEmail(user.Email, user.FullName);
+                // OTP email verification disabled
+                //string otp = EmailHelper.GenerateOtp();
+                //var token = new VerificationToken
+                //{
+                //    Email = user.Email,
+                //    PhoneNumber = user.PhoneNumber,
+                //    OtpCode = otp,
+                //    ExpiresAt = DateTime.UtcNow.AddMinutes(10),
+                //    Used = false,
+                //    Purpose = "registration"
+                //};
+                //_verificationTokens.InsertOne(token);
+                //new EmailHelper().SendOtpEmail(user.Email, otp);
 
-                return Response.Success(null, "Registration successful. You can now log in.");
+                return Response.Success(null, "Registration successful. You can now sign in.");
             }
             catch (Exception ex) { return Response.Error(ex.Message); }
         }
 
         // 003b – VERIFY REGISTRATION OTP
-        //public Response VerifyRegistrationOtp(string email, string otpCode)
-        //{
-        //    try
-        //    {
-        //        var token = _verificationTokens.Find(t => t.Email == email && t.OtpCode == otpCode && !t.Used && t.ExpiresAt > DateTime.UtcNow && t.Purpose == "registration").FirstOrDefault();
-        //        if (token == null) return Response.Fail("Invalid or expired OTP.");
-
-        //        _verificationTokens.UpdateOne(t => t.Id == token.Id,
-        //            Builders<VerificationToken>.Update.Set(t => t.Used, true));
-
-        //        _users.UpdateOne(u => u.Email == email,
-        //            Builders<UserModel>.Update
-        //                .Set(u => u.Status, "Active")
-        //                .Set(u => u.IsEmailVerified, true)
-        //                .Set(u => u.UpdatedAt, ToIsoString(DateTime.UtcNow)));
-
-        //        return Response.Success(null, "Email and phone verified. You can now log in.");
-        //    }
-        //    catch (Exception ex) { return Response.Error(ex.Message); }
-        //}
-
-
         public Response VerifyRegistrationOtp(string email, string otpCode)
         {
             try
@@ -218,41 +123,13 @@ namespace PeerLearningAndTutorialSystem.DataAccess
                 _verificationTokens.UpdateOne(t => t.Id == token.Id,
                     Builders<VerificationToken>.Update.Set(t => t.Used, true));
 
-                var user = _users.Find(u => u.Email == email).FirstOrDefault();
-                if (user == null) return Response.Fail("User not found.");
-
                 _users.UpdateOne(u => u.Email == email,
                     Builders<UserModel>.Update
                         .Set(u => u.Status, "Active")
                         .Set(u => u.IsEmailVerified, true)
                         .Set(u => u.UpdatedAt, ToIsoString(DateTime.UtcNow)));
 
-                // Send account creation success email
-                new EmailHelper().SendAccountCreationSuccessEmail(user.Email, user.FullName);
-
                 return Response.Success(null, "Email and phone verified. You can now log in.");
-            }
-            catch (Exception ex) { return Response.Error(ex.Message); }
-        }
-
-        // Add a new method for updating profile image (to be called from a separate endpoint)
-        public Response UpdateProfileImage(int userId, string imageBase64)
-        {
-            try
-            {
-                var user = _users.Find(u => u.UserId == userId).FirstOrDefault();
-                if (user == null) return Response.Fail("User not found.");
-
-                // Optional: validate base64 string and size (max 2MB)
-                if (string.IsNullOrWhiteSpace(imageBase64))
-                    return Response.Fail("Image data is required.");
-
-                _users.UpdateOne(u => u.UserId == userId,
-                    Builders<UserModel>.Update
-                        .Set(u => u.ProfileImage, imageBase64)
-                        .Set(u => u.UpdatedAt, ToIsoString(DateTime.UtcNow)));
-
-                return Response.Success(null, "Profile image updated.");
             }
             catch (Exception ex) { return Response.Error(ex.Message); }
         }
@@ -540,58 +417,7 @@ namespace PeerLearningAndTutorialSystem.DataAccess
             }
             catch (Exception ex) { return Response.Error(ex.Message); }
         }
-        //Verify OTP before EDIT
-        public Response VerifyEditOtp(int userId, string otpCode)
-        {
-            try
-            {
-                var user = _users.Find(u => u.UserId == userId).FirstOrDefault();
-                if (user == null) return Response.Fail("User not found.");
 
-                var token = _verificationTokens.Find(t => t.Email == user.Email && t.OtpCode == otpCode && !t.Used && t.ExpiresAt > DateTime.UtcNow && t.Purpose == "edit_profile").FirstOrDefault();
-                if (token == null) return Response.Fail("Invalid or expired OTP.");
-
-                _verificationTokens.UpdateOne(t => t.Id == token.Id,
-                    Builders<VerificationToken>.Update.Set(t => t.Used, true));
-
-                return Response.Success(null, "OTP verified successfully.");
-            }
-            catch (Exception ex) { return Response.Error(ex.Message); }
-        }
-
-        public Response AdminEditUser(UserRequestApi request, int adminId)
-        {
-            try
-            {
-                int targetUserId = request.UserId ?? 0;
-                if (targetUserId == 0) return Response.Fail("UserId is required.");
-                var user = _users.Find(u => u.UserId == targetUserId).FirstOrDefault();
-                if (user == null) return Response.Fail("User not found.");
-                var updateDef = new List<UpdateDefinition<UserModel>>();
-                if (!string.IsNullOrWhiteSpace(request.FullName))
-                    updateDef.Add(Builders<UserModel>.Update.Set(u => u.FullName, request.FullName.Trim()));
-                if (!string.IsNullOrWhiteSpace(request.PhoneNumber))
-                    updateDef.Add(Builders<UserModel>.Update.Set(u => u.PhoneNumber, request.PhoneNumber.Trim()));
-                if (!string.IsNullOrWhiteSpace(request.Center))
-                    updateDef.Add(Builders<UserModel>.Update.Set(u => u.Center, request.Center));
-                if (request.RoleId.HasValue)
-                {
-                    updateDef.Add(Builders<UserModel>.Update.Set(u => u.RoleId, request.RoleId.Value));
-                    updateDef.Add(Builders<UserModel>.Update.Set(u => u.RoleName,
-                        request.RoleId == 1 ? "Admin" : (request.RoleId == 2 ? "Tutor" : "Student")));
-                }
-                if (!string.IsNullOrWhiteSpace(request.Semester))
-                    updateDef.Add(Builders<UserModel>.Update.Set(u => u.Semester, request.Semester));
-                if (updateDef.Count == 0)
-                    return Response.Fail("No valid fields to update.");
-                updateDef.Add(Builders<UserModel>.Update.Set(u => u.UpdatedAt, ToIsoString(DateTime.UtcNow)));
-                updateDef.Add(Builders<UserModel>.Update.Set(u => u.UpdatedBy, adminId));
-                var update = Builders<UserModel>.Update.Combine(updateDef);
-                _users.UpdateOne(u => u.UserId == targetUserId, update);
-                return Response.Success(null, "User updated.");
-            }
-            catch (Exception ex) { return Response.Error(ex.Message); }
-        }
         // Helper
         private string GetUserEmailById(int userId)
         {

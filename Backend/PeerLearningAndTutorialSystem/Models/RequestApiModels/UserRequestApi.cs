@@ -25,11 +25,6 @@ namespace PeerLearningAndTutorialSystem.Models.RequestApiModels
         public int? UserId { get; set; }
         public string Status { get; set; }
 
-        // New fields
-        public string Center { get; set; }          // Malabe, Matara, Jaffna, Kandy
-        public string Semester { get; set; }        // "1st Semester", "2nd Semester" (for students)
-        public bool ConfirmDetails { get; set; }    // Checkbox for "above filling details are correct"
-
         // Forgot password / OTP flow
         public string OtpCode { get; set; }
         public string NewPassword { get; set; }

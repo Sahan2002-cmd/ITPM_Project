@@ -25,8 +25,6 @@ import UploadRecording from "./pages/UploadRecording";
 import RecordingsList from "./pages/RecordingsList";
 import RecordingPlayback from "./pages/RecordingPlayback";
 import AdminModeration from "./pages/AdminModeration";
-import AdminUsers from "./pages/AdminUsers";
-import AdminReports from "./pages/AdminReports";
 
 // Wrapper: wraps each child with a role check inside the already-authed Layout
 function RoleRoute({ children, roles }: { children: React.ReactNode; roles: ('student' | 'tutor' | 'admin')[] }) {
@@ -58,7 +56,6 @@ export const router = createBrowserRouter([
       { path: "chat",         element: <RoleRoute roles={["student"]}><Chat /></RoleRoute> },
       { path: "materials",    element: <RoleRoute roles={["student"]}><MaterialsLibrary /></RoleRoute> },
       { path: "session/review", element: <RoleRoute roles={["student"]}><SessionReview /></RoleRoute> },
-
     ],
   },
 
@@ -98,8 +95,6 @@ export const router = createBrowserRouter([
       { path: "analytics",   element: <RoleRoute roles={["admin"]}><AdminAnalytics /></RoleRoute> },
       { path: "moderation",  element: <RoleRoute roles={["admin"]}><AdminModeration /></RoleRoute> },
       { path: "profile",     element: <RoleRoute roles={["admin"]}><UserProfile /></RoleRoute> },
-      { path: "users", element: <RoleRoute roles={["admin"]}><AdminUsers /></RoleRoute> },
-      { path: "reports", element: <RoleRoute roles={["admin"]}><AdminReports /></RoleRoute> },
     ],
   },
 

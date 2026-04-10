@@ -1,91 +1,254 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts";
-import { DollarSign, Users, Star, Clock, TrendingUp, Calendar, MessageSquare, ArrowUpRight, BookOpen, Bell, Check, X, ChevronDown } from "lucide-react";
-import { tutors, TUTOR_IMAGES } from "../data/mockData";
+import { DollarSign, Users, TrendingUp, Calendar, ArrowUpRight, BookOpen, Bell, Check, X, Award } from "lucide-react";
+import { useAuth } from "../contexts/AuthContext";
+import { getBookingsByTutor, acceptBooking, declineBooking, completeBooking } from "../services/Module_02_API";
+import { submitEvaluation } from "../services/Module_04_API";
 
-const earningsData = [
-  { month: "Oct", earnings: 920, sessions: 18 },
-  { month: "Nov", earnings: 1240, sessions: 24 },
-  { month: "Dec", earnings: 1080, sessions: 21 },
-  { month: "Jan", earnings: 1580, sessions: 31 },
-  { month: "Feb", earnings: 1420, sessions: 28 },
-  { month: "Mar", earnings: 860, sessions: 17 },
-];
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-type BookingStatus = "pending" | "approved" | "rejected";
-
-type Notification = {
-  id: string;
-  student: string;
-  avatar: string;
-  date: string;
-  time: string;
-  sessionType: "Individual" | "Group";
-  requestedAt: string;
-  status: BookingStatus;
-  read: boolean;
+type Booking = {
+  Id: string;
+  BookingId?: number;
+  TutorProfileId: string;
+  TutorId: number;
+  StudentId: number;
+  Status: string;
+  SessionDate: string;
+  StartTime: string;
+  EndTime: string;
+  CreatedAt?: string;
 };
 
-const initialNotifications: Notification[] = [
-  { id: "n1", student: "Nethmi Perera", avatar: TUTOR_IMAGES.student, date: "April 10", time: "2:00 PM", sessionType: "Individual", requestedAt: "5 min ago", status: "pending", read: false },
-  { id: "n2", student: "Kavya Sharma", avatar: TUTOR_IMAGES.mei, date: "April 11", time: "10:00 AM", sessionType: "Group", requestedAt: "23 min ago", status: "pending", read: false },
-  { id: "n3", student: "Roshan Silva", avatar: TUTOR_IMAGES.alex, date: "April 9", time: "4:00 PM", sessionType: "Individual", requestedAt: "1 hr ago", status: "approved", read: true },
-];
+function toSlstTime(utcStr: string): string {
+  if (!utcStr) return "";
+  const d = new Date(utcStr.endsWith("Z") ? utcStr : utcStr + "Z");
+  d.setMinutes(d.getMinutes() + 330);
+  return d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
+}
 
-type UpcomingSession = {
-  id: string;
-  student: string;
-  avatar: string;
-  subject: string;
-  date: string;
-  time: string;
-  duration: number;
-  status: "Approved" | "Pending";
-  sessionType: "Individual" | "Group";
-  memberCount?: number;
-};
-
-// Only this tutor's sessions (tutorId = "1" = Sarah Johnson)
-const upcomingSessions: UpcomingSession[] = [
-  { id: "s1", student: "Nethmi Perera", avatar: TUTOR_IMAGES.student, subject: "Calculus", date: "Today", time: "10:00 AM", duration: 60, status: "Approved", sessionType: "Individual" },
-  { id: "s2", student: "Kavya Sharma", avatar: TUTOR_IMAGES.mei, subject: "Statistics", date: "Tomorrow", time: "2:00 PM", duration: 45, status: "Pending", sessionType: "Group", memberCount: 4 },
-  { id: "s3", student: "Roshan Silva", avatar: TUTOR_IMAGES.alex, subject: "Linear Algebra", date: "Apr 10", time: "11:00 AM", duration: 90, status: "Approved", sessionType: "Individual" },
-];
+function toSlstDateStr(utcStr: string): string {
+  if (!utcStr) return "";
+  const d = new Date(utcStr.endsWith("Z") ? utcStr : utcStr + "Z");
+  d.setMinutes(d.getMinutes() + 330);
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
 
 export default function TutorDashboard() {
-  const tutor = tutors[0]; // logged-in tutor
-  const totalEarnings = earningsData.reduce((a, b) => a + b.earnings, 0);
-  const totalSessions = earningsData.reduce((a, b) => a + b.sessions, 0);
-
-  const [notifications, setNotifications] = useState<Notification[]>(initialNotifications);
+  const { user } = useAuth();
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [actionError, setActionError] = useState("");
+  const [completingId, setCompletingId] = useState<number | null>(null);
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  // Evaluation state
+  const EVAL_FACTORS = ["Attendance", "Participation", "Understanding", "Behavior", "AssignmentCompletion"] as const;
+  const EVAL_LABELS: Record<string, string> = {
+    Attendance: "Attendance",
+    Participation: "Participation",
+    Understanding: "Understanding",
+    Behavior: "Behavior",
+    AssignmentCompletion: "Assignment Completion",
+  };
+  const defaultScores = (): Record<string, number> =>
+    Object.fromEntries(EVAL_FACTORS.map(f => [f, 3]));
 
-  const markAllRead = () => setNotifications(ns => ns.map(n => ({ ...n, read: true })));
+  const [evaluatingBooking, setEvaluatingBooking] = useState<Booking | null>(null);
+  const [evalScores, setEvalScores] = useState<Record<string, number>>(defaultScores());
+  const [evalSubmitting, setEvalSubmitting] = useState(false);
+  const [evalError, setEvalError] = useState("");
+  const [evaluatedIds, setEvaluatedIds] = useState<Set<number>>(new Set());
 
-  const handleApprove = (id: string) => {
-    setNotifications(ns => ns.map(n => n.id === id ? { ...n, status: "approved", read: true } : n));
+  const fetchBookings = async () => {
+    if (!user?.userId) return;
+    try {
+      const res = await getBookingsByTutor(user.userId);
+      if (res?.StatusCode === 1) {
+        setBookings(Array.isArray(res.Data) ? res.Data : []);
+      }
+    } catch {
+      // show empty state on error
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleReject = (id: string) => {
-    setNotifications(ns => ns.map(n => n.id === id ? { ...n, status: "rejected", read: true } : n));
+  useEffect(() => { fetchBookings(); }, [user?.userId]);
+
+  const pendingBookings = bookings.filter(b => b.Status === "Pending");
+  const confirmedBookings = bookings.filter(b => b.Status === "Confirmed");
+  const completedBookings = bookings.filter(b => b.Status === "Completed");
+  const unreadCount = pendingBookings.length;
+
+  // Derive chart data from real bookings (last 6 months, SLST)
+  const now = new Date();
+  now.setMinutes(now.getMinutes() + 330);
+  const bmMap: Record<string, number> = {};
+  bookings.forEach(b => {
+    if (!b.SessionDate) return;
+    const d = new Date(b.SessionDate.endsWith("Z") ? b.SessionDate : b.SessionDate + "Z");
+    d.setMinutes(d.getMinutes() + 330);
+    const key = MONTHS[d.getMonth()];
+    bmMap[key] = (bmMap[key] || 0) + 1;
+  });
+  const sessionsChartData = Array.from({ length: 6 }).map((_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - 5 + i, 1);
+    const label = MONTHS[d.getMonth()];
+    return { month: label, sessions: bmMap[label] || 0 };
+  });
+
+  const handleAccept = async (bookingId: number) => {
+    setActionError("");
+    const res = await acceptBooking(bookingId);
+    if (res?.StatusCode === 1) {
+      await fetchBookings();
+    } else {
+      setActionError(res?.Message || "Failed to accept booking.");
+    }
   };
 
-  const openNotifications = () => {
-    setShowNotifications(v => !v);
-    // Mark all as read when panel is opened
-    setTimeout(() => setNotifications(ns => ns.map(n => ({ ...n, read: true }))), 800);
+  const handleDecline = async (bookingId: number) => {
+    setActionError("");
+    const res = await declineBooking(bookingId);
+    if (res?.StatusCode === 1) {
+      await fetchBookings();
+    } else {
+      setActionError(res?.Message || "Failed to decline booking.");
+    }
+  };
+
+  const handleEvaluate = async () => {
+    if (!evaluatingBooking) return;
+    if (!evaluatingBooking.BookingId) {
+      setEvalError("Cannot evaluate: booking ID is missing. Please refresh the page and try again.");
+      return;
+    }
+    setEvalSubmitting(true);
+    setEvalError("");
+    try {
+      const res = await submitEvaluation({
+        BookingId: evaluatingBooking.BookingId,
+        TutorProfileId: evaluatingBooking.TutorProfileId,
+        TutorId: evaluatingBooking.TutorId,
+        StudentId: evaluatingBooking.StudentId,
+        Attendance: evalScores["Attendance"],
+        Participation: evalScores["Participation"],
+        Understanding: evalScores["Understanding"],
+        Behavior: evalScores["Behavior"],
+        AssignmentCompletion: evalScores["AssignmentCompletion"],
+      });
+      if (res?.StatusCode === 1) {
+        setEvaluatedIds(prev => {
+          const next = new Set(prev);
+          next.add(evaluatingBooking.BookingId!);
+          return next;
+        });
+        setEvaluatingBooking(null);
+        setEvalScores(defaultScores());
+      } else {
+        setEvalError(res?.Message || "Failed to submit evaluation.");
+      }
+    } catch (err: any) {
+      setEvalError(err?.message || "Failed to submit evaluation.");
+    } finally {
+      setEvalSubmitting(false);
+    }
+  };
+
+  const handleComplete = async (bookingId: number) => {
+    if (!bookingId) {
+      setActionError("Cannot complete: booking ID is missing. Please refresh the page.");
+      return;
+    }
+    setActionError("");
+    setCompletingId(bookingId);
+    try {
+      const res = await completeBooking(bookingId);
+      if (res?.StatusCode === 1) {
+        await fetchBookings();
+      } else {
+        setActionError(res?.Message || "Failed to mark session as completed.");
+      }
+    } catch (err: any) {
+      setActionError(err?.message || "Failed to mark session as completed.");
+    } finally {
+      setCompletingId(null);
+    }
   };
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
+      {/* ── Evaluation Modal ──────────────────────────────────────── */}
+      {evaluatingBooking && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">Evaluate Student</h2>
+                <p className="text-sm text-slate-500 mt-0.5">
+                  Student #{evaluatingBooking.StudentId} &middot; Booking #{evaluatingBooking.BookingId}
+                </p>
+              </div>
+              <button
+                onClick={() => { setEvaluatingBooking(null); setEvalError(""); }}
+                className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-500"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {EVAL_FACTORS.map(factor => (
+                <div key={factor}>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-sm font-medium text-slate-700">{EVAL_LABELS[factor]}</label>
+                    <span className="text-sm font-bold text-violet-600">{evalScores[factor]} / 5</span>
+                  </div>
+                  <input
+                    type="range" min={1} max={5} step={1}
+                    value={evalScores[factor]}
+                    onChange={e => setEvalScores(s => ({ ...s, [factor]: Number(e.target.value) }))}
+                    className="w-full accent-violet-600"
+                  />
+                  <div className="flex justify-between text-[10px] text-slate-400 mt-0.5">
+                    <span>1 – Poor</span><span>3 – Average</span><span>5 – Excellent</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {evalError && (
+              <p className="mt-3 text-sm text-rose-600">{evalError}</p>
+            )}
+
+            <div className="flex gap-3 mt-5">
+              <button
+                onClick={() => { setEvaluatingBooking(null); setEvalError(""); }}
+                className="flex-1 py-2.5 border border-slate-200 text-slate-600 rounded-xl text-sm font-medium hover:bg-slate-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleEvaluate}
+                disabled={evalSubmitting}
+                className="flex-1 py-2.5 bg-violet-600 text-white rounded-xl text-sm font-semibold hover:bg-violet-700 transition-colors disabled:opacity-50"
+              >
+                {evalSubmitting ? "Submitting..." : "Submit Evaluation"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Header ────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
-          <img src={tutor.avatar} alt={tutor.name} className="w-12 h-12 rounded-2xl object-cover" />
+          <div className="w-12 h-12 rounded-2xl bg-violet-100 flex items-center justify-center text-violet-700 font-bold text-lg">
+            {user?.name?.charAt(0)?.toUpperCase() ?? "T"}
+          </div>
           <div>
-            <h1 className="text-xl font-bold text-slate-900">Welcome back, Sarah 👋</h1>
+            <h1 className="text-xl font-bold text-slate-900">Welcome back, {user?.name?.split(" ")[0] ?? "Tutor"} 👋</h1>
             <p className="text-sm text-slate-500">Here's your tutoring performance overview</p>
           </div>
         </div>
@@ -97,7 +260,7 @@ export default function TutorDashboard() {
           {/* Notification Bell */}
           <div className="relative">
             <button
-              onClick={openNotifications}
+              onClick={() => setShowNotifications(v => !v)}
               className="relative p-2.5 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors shadow-sm"
             >
               <Bell className="w-5 h-5 text-slate-600" />
@@ -119,55 +282,47 @@ export default function TutorDashboard() {
                     )}
                   </h3>
                   <div className="flex items-center gap-2">
-                    <button onClick={markAllRead} className="text-xs text-violet-600 hover:text-violet-800 font-medium transition-colors">Mark all read</button>
                     <button onClick={() => setShowNotifications(false)} className="p-1 hover:bg-slate-100 rounded-lg transition-colors">
                       <X className="w-4 h-4 text-slate-400" />
                     </button>
                   </div>
                 </div>
+                {actionError && (
+                  <p className="text-xs text-rose-600 px-4 pt-3">{actionError}</p>
+                )}
                 <div className="max-h-[420px] overflow-y-auto divide-y divide-slate-50">
-                  {notifications.length === 0 && (
-                    <p className="text-sm text-slate-400 text-center py-8">No notifications yet</p>
+                  {pendingBookings.length === 0 && (
+                    <p className="text-sm text-slate-400 text-center py-8">No pending requests</p>
                   )}
-                  {notifications.map(n => (
-                    <div key={n.id} className={`p-4 transition-colors ${!n.read ? "bg-violet-50/60" : "bg-white"}`}>
+                  {pendingBookings.map(b => (
+                    <div key={b.Id} className="p-4 bg-violet-50/60">
                       <div className="flex items-start gap-3">
-                        <img src={n.avatar} alt={n.student} className="w-9 h-9 rounded-full object-cover flex-shrink-0" />
+                        <div className="w-9 h-9 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 font-semibold text-sm flex-shrink-0">
+                          S
+                        </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-slate-800">
-                            {n.sessionType === "Group" ? "Group session request" : "New booking request"} from <span className="text-violet-700">{n.student}</span>
+                            Booking request from <span className="text-violet-700">Student #{b.StudentId}</span>
                           </p>
                           <div className="flex items-center gap-2 flex-wrap mt-1">
-                            <span className="text-xs text-slate-500">{n.date} at {n.time}</span>
-                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${n.sessionType === "Group" ? "bg-blue-100 text-blue-700" : "bg-violet-100 text-violet-700"}`}>
-                              {n.sessionType}
-                            </span>
-                            <span className="text-[10px] text-slate-400">{n.requestedAt}</span>
+                            <span className="text-xs text-slate-500">{toSlstDateStr(b.SessionDate)} at {toSlstTime(b.StartTime)}</span>
                           </div>
-
-                          {n.status === "pending" ? (
-                            <div className="flex gap-2 mt-2.5">
-                              <button
-                                onClick={() => handleApprove(n.id)}
-                                className="flex items-center gap-1 px-3 py-1.5 bg-emerald-600 text-white text-xs font-semibold rounded-lg hover:bg-emerald-700 transition-colors"
-                              >
-                                <Check className="w-3 h-3" /> Approve
-                              </button>
-                              <button
-                                onClick={() => handleReject(n.id)}
-                                className="flex items-center gap-1 px-3 py-1.5 bg-rose-100 text-rose-600 text-xs font-semibold rounded-lg hover:bg-rose-200 transition-colors"
-                              >
-                                <X className="w-3 h-3" /> Reject
-                              </button>
-                            </div>
-                          ) : (
-                            <span className={`inline-flex items-center gap-1 mt-2 px-2 py-1 rounded-lg text-xs font-semibold ${n.status === "approved" ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-600"}`}>
-                              {n.status === "approved" ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
-                              {n.status === "approved" ? "Approved" : "Rejected"}
-                            </span>
-                          )}
+                          <div className="flex gap-2 mt-2.5">
+                            <button
+                              onClick={() => handleAccept(b.BookingId)}
+                              className="flex items-center gap-1 px-3 py-1.5 bg-emerald-600 text-white text-xs font-semibold rounded-lg hover:bg-emerald-700 transition-colors"
+                            >
+                              <Check className="w-3 h-3" /> Approve
+                            </button>
+                            <button
+                              onClick={() => handleDecline(b.BookingId)}
+                              className="flex items-center gap-1 px-3 py-1.5 bg-rose-100 text-rose-600 text-xs font-semibold rounded-lg hover:bg-rose-200 transition-colors"
+                            >
+                              <X className="w-3 h-3" /> Reject
+                            </button>
+                          </div>
                         </div>
-                        {!n.read && <span className="w-2 h-2 bg-violet-500 rounded-full flex-shrink-0 mt-1.5" />}
+                        <span className="w-2 h-2 bg-violet-500 rounded-full flex-shrink-0 mt-1.5" />
                       </div>
                     </div>
                   ))}
@@ -181,19 +336,16 @@ export default function TutorDashboard() {
       {/* ── KPI Cards ──────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {[
-          { icon: DollarSign, label: "Total Earnings", value: `$${totalEarnings.toLocaleString()}`, change: "+12%", color: "text-emerald-600", bg: "bg-emerald-50" },
-          { icon: Users, label: "Total Students", value: "47", change: "+8%", color: "text-violet-600", bg: "bg-violet-50" },
-          { icon: BookOpen, label: "Sessions Done", value: totalSessions.toString(), change: "+5%", color: "text-blue-600", bg: "bg-blue-50" },
-          { icon: Star, label: "Avg Rating", value: tutor.rating.toString(), change: "+0.1", color: "text-amber-600", bg: "bg-amber-50" },
-        ].map(({ icon: Icon, label, value, change, color, bg }) => (
+          { icon: BookOpen, label: "Confirmed Sessions", value: loading ? "—" : confirmedBookings.length.toString(), color: "text-violet-600", bg: "bg-violet-50" },
+          { icon: Users, label: "Pending Requests", value: loading ? "—" : pendingBookings.length.toString(), color: "text-amber-600", bg: "bg-amber-50" },
+          { icon: DollarSign, label: "Completed Sessions", value: loading ? "—" : completedBookings.length.toString(), color: "text-emerald-600", bg: "bg-emerald-50" },
+          { icon: TrendingUp, label: "Total Bookings", value: loading ? "—" : bookings.length.toString(), color: "text-blue-600", bg: "bg-blue-50" },
+        ].map(({ icon: Icon, label, value, color, bg }) => (
           <div key={label} className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
             <div className="flex items-center justify-between mb-3">
               <div className={`w-10 h-10 ${bg} rounded-xl flex items-center justify-center`}>
                 <Icon className={`w-5 h-5 ${color}`} />
               </div>
-              <span className="flex items-center gap-1 text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
-                <TrendingUp className="w-3 h-3" /> {change}
-              </span>
             </div>
             <p className={`text-2xl font-bold ${color}`}>{value}</p>
             <p className="text-sm text-slate-500 mt-1">{label}</p>
@@ -206,25 +358,21 @@ export default function TutorDashboard() {
         <div className="lg:col-span-2 space-y-5">
           <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
             <div className="flex items-center justify-between mb-5">
-              <h2 className="font-semibold text-slate-800">Earnings Overview</h2>
-              <select className="text-xs px-3 py-1.5 border border-slate-200 rounded-lg bg-white focus:outline-none">
-                <option>Last 6 months</option>
-                <option>Last year</option>
-              </select>
+              <h2 className="font-semibold text-slate-800">Sessions Overview</h2>
             </div>
             <ResponsiveContainer width="100%" height={200}>
-              <AreaChart data={earningsData}>
+              <AreaChart data={sessionsChartData}>
                 <defs>
-                  <linearGradient id="earningsGrad" x1="0" y1="0" x2="0" y2="1">
+                  <linearGradient id="sessionsGrad" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#7c3aed" stopOpacity={0.2} />
                     <stop offset="95%" stopColor="#7c3aed" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                 <XAxis dataKey="month" tick={{ fontSize: 12, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 12, fill: "#94a3b8" }} axisLine={false} tickLine={false} tickFormatter={v => `$${v}`} />
-                <Tooltip formatter={(v: number) => [`$${v}`, "Earnings"]} contentStyle={{ borderRadius: "12px", border: "1px solid #e2e8f0", fontSize: 12 }} />
-                <Area type="monotone" dataKey="earnings" stroke="#7c3aed" strokeWidth={2.5} fill="url(#earningsGrad)" />
+                <YAxis tick={{ fontSize: 12, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
+                <Tooltip contentStyle={{ borderRadius: "12px", border: "1px solid #e2e8f0", fontSize: 12 }} />
+                <Area type="monotone" dataKey="sessions" stroke="#7c3aed" strokeWidth={2.5} fill="url(#sessionsGrad)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -232,7 +380,7 @@ export default function TutorDashboard() {
           <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
             <h2 className="font-semibold text-slate-800 mb-5">Sessions Per Month</h2>
             <ResponsiveContainer width="100%" height={150}>
-              <BarChart data={earningsData}>
+              <BarChart data={sessionsChartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                 <XAxis dataKey="month" tick={{ fontSize: 12, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 12, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
@@ -245,70 +393,121 @@ export default function TutorDashboard() {
 
         {/* Right Column */}
         <div className="space-y-5">
-          {/* Upcoming Sessions — only this tutor's sessions */}
+          {/* Upcoming Sessions */}
           <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
             <h2 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
               <Calendar className="w-4 h-4 text-violet-600" /> Upcoming Sessions
             </h2>
-            <div className="space-y-3">
-              {upcomingSessions.map((s) => (
-                <div key={s.id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
-                  <img src={s.avatar} alt={s.student} className="w-9 h-9 rounded-full object-cover" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-800 truncate">{s.student}</p>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <p className="text-xs text-slate-500">{s.subject} · {s.duration}min</p>
-                      {s.sessionType === "Group" && (
-                        <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 rounded font-semibold">
-                          Group {s.memberCount ? `(${s.memberCount})` : ""}
+            {loading ? (
+              <p className="text-sm text-slate-400 text-center py-4">Loading...</p>
+            ) : confirmedBookings.length === 0 ? (
+              <p className="text-sm text-slate-400 text-center py-4">No upcoming sessions</p>
+            ) : (
+              <div className="space-y-3">
+                {confirmedBookings.slice(0, 4).map((b) => (
+                  <div key={b.Id} className="flex flex-col gap-2 p-3 bg-slate-50 rounded-xl">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-full bg-violet-100 flex items-center justify-center text-violet-700 font-semibold text-sm flex-shrink-0">
+                        S
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-slate-800 truncate">Student #{b.StudentId}</p>
+                        <p className="text-xs text-slate-500 mt-0.5">{toSlstTime(b.StartTime)} – {toSlstTime(b.EndTime)}</p>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <p className="text-xs font-medium text-violet-700">{toSlstDateStr(b.SessionDate)}</p>
+                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded mt-0.5 inline-block bg-emerald-100 text-emerald-700">
+                          Confirmed
                         </span>
-                      )}
+                      </div>
                     </div>
+                    <button
+                      onClick={() => handleComplete(b.BookingId)}
+                      disabled={completingId === b.BookingId}
+                      className="w-full flex items-center justify-center gap-1.5 py-1.5 bg-emerald-600 text-white text-xs font-semibold rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50"
+                    >
+                      <Check className="w-3 h-3" />
+                      {completingId === b.BookingId ? "Marking..." : "Mark as Completed"}
+                    </button>
                   </div>
-                  <div className="text-right flex-shrink-0">
-                    <p className="text-xs font-medium text-violet-700">{s.date}</p>
-                    <p className="text-[10px] text-slate-400">{s.time}</p>
-                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded mt-0.5 inline-block ${s.status === "Approved" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
-                      {s.status}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <button className="w-full mt-3 py-2 text-sm text-violet-600 font-medium hover:bg-violet-50 rounded-xl transition-colors flex items-center justify-center gap-1">
-              View All <ArrowUpRight className="w-3.5 h-3.5" />
-            </button>
+                ))}
+              </div>
+            )}
+            {!loading && confirmedBookings.length > 4 && (
+              <button className="w-full mt-3 py-2 text-sm text-violet-600 font-medium hover:bg-violet-50 rounded-xl transition-colors flex items-center justify-center gap-1">
+                View All <ArrowUpRight className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
 
-          {/* Quick Stats */}
+          {/* Completed Sessions */}
           <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
-            <h2 className="font-semibold text-slate-800 mb-4">This Month</h2>
+            <h2 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
+              <Award className="w-4 h-4 text-violet-600" /> Completed Sessions
+            </h2>
+            {loading ? (
+              <p className="text-sm text-slate-400 text-center py-4">Loading...</p>
+            ) : completedBookings.length === 0 ? (
+              <p className="text-sm text-slate-400 text-center py-4">No completed sessions yet</p>
+            ) : (
+              <div className="space-y-3">
+                {completedBookings.slice(0, 3).map(b => (
+                  <div key={b.Id ?? b.BookingId} className="flex flex-col gap-2 p-3 bg-slate-50 rounded-xl">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 font-semibold text-sm flex-shrink-0">
+                        S
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-slate-800">Student #{b.StudentId}</p>
+                        <p className="text-xs text-slate-500">{toSlstDateStr(b.SessionDate)}</p>
+                      </div>
+                      <span className="text-[10px] font-semibold px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded">Done</span>
+                    </div>
+                    {!evaluatedIds.has(b.BookingId!) ? (
+                      <button
+                        onClick={() => {
+                          setEvaluatingBooking(b);
+                          setEvalScores(defaultScores());
+                          setEvalError("");
+                        }}
+                        className="w-full flex items-center justify-center gap-1.5 py-1.5 bg-violet-600 text-white text-xs font-semibold rounded-lg hover:bg-violet-700 transition-colors"
+                      >
+                        <Award className="w-3 h-3" /> Evaluate Student
+                      </button>
+                    ) : (
+                      <div className="w-full flex items-center justify-center gap-1 py-1.5 bg-emerald-50 text-emerald-700 text-xs font-semibold rounded-lg">
+                        <Check className="w-3 h-3" /> Evaluated
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Bookings Summary */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+            <h2 className="font-semibold text-slate-800 mb-4">Bookings Summary</h2>
             <div className="space-y-3">
               {[
-                { label: "Sessions Completed", value: "17", icon: BookOpen, color: "text-violet-600" },
-                { label: "Hours Taught", value: "24h", icon: Clock, color: "text-blue-600" },
-                { label: "New Students", value: "4", icon: Users, color: "text-emerald-600" },
-                { label: "Messages Replied", value: "38", icon: MessageSquare, color: "text-amber-600" },
-              ].map(({ label, value, icon: Icon, color }) => (
+                { label: "Pending Requests", value: loading ? "—" : pendingBookings.length.toString(), color: "text-amber-600" },
+                { label: "Confirmed", value: loading ? "—" : confirmedBookings.length.toString(), color: "text-blue-600" },
+                { label: "Completed", value: loading ? "—" : completedBookings.length.toString(), color: "text-emerald-600" },
+                { label: "Cancelled / Declined", value: loading ? "—" : bookings.filter(b => b.Status === "Cancelled" || b.Status === "Declined").length.toString(), color: "text-rose-500" },
+              ].map(({ label, value, color }) => (
                 <div key={label} className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Icon className={`w-4 h-4 ${color}`} />
-                    <span className="text-sm text-slate-600">{label}</span>
-                  </div>
+                  <span className="text-sm text-slate-600">{label}</span>
                   <span className={`text-sm font-bold ${color}`}>{value}</span>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Payout */}
+          {/* Total sessions card */}
           <div className="bg-gradient-to-br from-violet-600 to-indigo-700 rounded-2xl p-5 text-white shadow-md">
-            <p className="text-violet-200 text-sm">Pending Payout</p>
-            <p className="text-3xl font-bold mt-1">$386.00</p>
-            <p className="text-violet-200 text-xs mt-1">Available March 7, 2026</p>
-            <button className="mt-4 w-full py-2 bg-white text-violet-700 rounded-xl text-sm font-semibold hover:bg-violet-50 transition-colors">
-              Request Early Payout
-            </button>
+            <p className="text-violet-200 text-sm">Total Bookings</p>
+            <p className="text-3xl font-bold mt-1">{loading ? "—" : bookings.length}</p>
+            <p className="text-violet-200 text-xs mt-1">Across all statuses</p>
           </div>
         </div>
       </div>
