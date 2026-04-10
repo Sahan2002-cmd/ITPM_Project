@@ -1,7 +1,7 @@
 ﻿using MongoDB.Driver;
 using PeerLearningAndTutorialSystem.DatabaseConnectivity;
 
-namespace PeerLearningAndTutorialSystem.BusinessLayer
+namespace PeerLearningAndTutorialSystem.DatabaseConnectivity
 {
     public static class CounterHelper
     {

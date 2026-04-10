@@ -16,10 +16,14 @@ namespace PeerLearningAndTutorialSystem.Models
         public string RoleName { get; set; }
         public string Status { get; set; }
         public bool IsEmailVerified { get; set; }
-        public string ProfileImage { get; set; }
+        public string ProfileImage { get; set; }     // URL or base64 of uploaded image
         public int? CreatedBy { get; set; }
         public string CreatedAt { get; set; }
         public int? UpdatedBy { get; set; }
         public string UpdatedAt { get; set; }
+
+        // New fields
+        public string Center { get; set; }           // Malabe, Matara, Jaffna, Kandy
+        public string Semester { get; set; }         // "1st Semester", "2nd Semester" (only for students)
     }
 }

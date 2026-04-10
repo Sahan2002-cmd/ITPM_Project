@@ -82,6 +82,7 @@ const NAV_CONFIG = {
           { to: "/admin/analytics",  icon: BarChart3, label: "Analytics Panel" },
           { to: "/admin/moderation", icon: Shield,    label: "Moderation" },
           { to: "/admin/users",      icon: Users,     label: "User Management" },
+          { to: "/admin/reports",    icon: FileText,  label: "Reports" },  //new
         ],
       },
     ],

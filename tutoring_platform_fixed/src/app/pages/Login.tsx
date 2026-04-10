@@ -22,22 +22,19 @@ export default function Login() {
     setError('');
     setIsLoading(true);
 
-    const result = await login(email, password);
-
-    setIsLoading(false);
-
-    if (result.success) {
-      navigate('/student/dashboard');
-    } else {
-      setError(result.error || 'Login failed');
-    }
+const result = await login(email, password);
+if (result.success && result.role) {
+  if (result.role === 'admin') navigate('/admin/analytics');
+  else if (result.role === 'tutor') navigate('/tutor/dashboard');
+  else navigate('/student/dashboard');
+}
   };
 
   const fillCredentials = (type: 'student' | 'tutor' | 'admin') => {
     const credentials = {
       student: { email: 'it23837676@my.sliit.lk', password: 'Student@123' },
       tutor: { email: 'randeer.p@sliit.lk', password: 'Tutor@123' },
-      admin: { email: 'gamage.admin@sliit.lk', password: 'Admin@123' },
+      admin: { email: 'isuri.admin@sliit.lk', password: 'Admin@123' },
     };
     setEmail(credentials[type].email);
     setPassword(credentials[type].password);

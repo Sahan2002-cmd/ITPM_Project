@@ -381,6 +381,7 @@
     <Compile Include="Controllers\BookingController.cs" />
     <Compile Include="Controllers\DashboardController.cs" />
     <Compile Include="Controllers\FileResourceController.cs" />
+    <Compile Include="Controllers\flagController.cs" />
     <Compile Include="Controllers\HomeController.cs" />
     <Compile Include="Controllers\InSessionMessageController.cs" />
     <Compile Include="Controllers\NotificationController.cs" />
@@ -446,6 +447,7 @@
     <Compile Include="Models\RequestApiModels\NotificationRequestApi.cs" />
     <Compile Include="Models\RequestApiModels\OutSessionMessageRequestApi.cs" />
     <Compile Include="Models\RequestApiModels\PaymentRequestApi.cs" />
+    <Compile Include="Models\RequestApiModels\ProfileImageRequest.cs" />
     <Compile Include="Models\RequestApiModels\RatingRequestApi.cs" />
     <Compile Include="Models\RequestApiModels\RecordingRequestApi.cs" />
     <Compile Include="Models\RequestApiModels\SessionNoteRequestApi.cs" />
@@ -522,6 +524,7 @@
     <Folder Include="Views\Booking\" />
     <Folder Include="Views\Dashboard\" />
     <Folder Include="Views\FileResource\" />
+    <Folder Include="Views\flag\" />
     <Folder Include="Views\InSessionMessage\" />
     <Folder Include="Views\Notification\" />
     <Folder Include="Views\OutSessionMessage\" />

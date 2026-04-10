@@ -93,10 +93,10 @@ const triggerPdfDownload = (blob, filename) => {
  * @param {number} form.roleId          - 2 = Tutor, 3 = Student
  * @returns {{ success: boolean, errors?: Object }}
  */
+// In registerAction, add validation for center, semester (if student), confirmDetails
 export const registerAction = async (form) => {
   const errors = {};
-
-  if (!form.fullName?.trim() || form.fullName.trim().length < 3)
+if (!form.fullName?.trim() || form.fullName.trim().length < 3)
     errors.fullName = "Full name must be at least 3 characters.";
 
   const emailErr = validateSliitEmail(form.email, form.roleId);
@@ -114,15 +114,24 @@ export const registerAction = async (form) => {
   if (![2, 3].includes(form.roleId))
     errors.roleId = "Invalid role. Must be Student (3) or Tutor (2).";
 
+  // New validations
+  if (!form.center) errors.center = "Please select your SLIIT center.";
+  if (!form.confirmDetails) errors.confirmDetails = "You must confirm that the details are correct.";
+  if (form.roleId === 3 && !form.semester) errors.semester = "Please select your semester.";
+
   if (Object.keys(errors).length > 0) return { success: false, errors };
 
   try {
     await registerUser({
-      fullName:    form.fullName.trim(),
-      email:       form.email.trim(),
+      fullName: form.fullName.trim(),
+      email: form.email.trim(),
       phoneNumber: form.phoneNumber.trim(),
-      password:    form.password,
-      roleId:      form.roleId,
+      password: form.password,
+      roleId: form.roleId,
+      center: form.center,
+      semester: form.semester,
+      confirmDetails: form.confirmDetails,
+      profileImage: form.profileImage || null,
     });
     return { success: true };
   } catch (err) {
@@ -170,21 +179,35 @@ export const verifyOtpAction = async (email, otpCode) => {
  */
 export const loginAction = async (email, password) => {
   const errors = {};
-
   if (!email?.trim()) errors.email = "Email is required.";
-  if (!password)      errors.password = "Password is required.";
-
+  if (!password) errors.password = "Password is required.";
   if (Object.keys(errors).length > 0) return { success: false, errors };
 
   try {
-    const response = await loginUser({ email: email.trim(), password });
+    const userData = await loginUser({ email: email.trim(), password });
+    // userData now contains: { token, UserId, FullName, Email, RoleName, RoleId }
 
-    if (response.token) {
-      localStorage.setItem("token", response.token);
-      localStorage.setItem("user",  JSON.stringify(response.user));
+    if (userData.token) {
+      // Determine roleName from RoleId (uppercase)
+      let roleName = "Student";
+      if (userData.RoleId === 1) roleName = "Admin";
+      else if (userData.RoleId === 2) roleName = "Tutor";
+
+      // Normalize to camelCase for consistent use in the frontend
+      const normalizedUser = {
+        token: userData.token,
+        userId: userData.UserId,
+        fullName: userData.FullName,
+        email: userData.Email,
+        roleId: userData.RoleId,
+        roleName: roleName,
+      };
+
+      localStorage.setItem("token", normalizedUser.token);
+      localStorage.setItem("user", JSON.stringify(normalizedUser));
+      return { success: true, user: normalizedUser, role: roleName.toLowerCase() };
     }
-
-    return { success: true, user: response.user, role: response.user?.role };
+    throw new Error("Invalid response from server");
   } catch (err) {
     return {
       success: false,
@@ -192,6 +215,7 @@ export const loginAction = async (email, password) => {
     };
   }
 };
+   
 
 /**
  * googleLoginAction

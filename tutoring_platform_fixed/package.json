@@ -85,5 +85,6 @@
     "overrides": {
       "vite": "6.3.5"
     }
-  }
+  },
+  "proxy": "https://localhost:44331"
 }

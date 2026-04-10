@@ -56,7 +56,7 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
-const BASE_URL = "http://localhost:5000/api";
+const BASE_URL = "/api";
 
 const getAuthHeaders = () => {
   const token = localStorage.getItem("token");
@@ -73,14 +73,18 @@ const getAuthHeadersNoContentType = () => {
 
 const handleResponse = async (res) => {
   const data = await res.json();
-  if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
+  if (!res.ok) throw new Error(data.Message || `HTTP ${res.status}`);
+  // ✅ correct uppercase properties
+  if (data.StatusCode === 1 && data.Data !== undefined) {
+    return data.Data;   // now returns { token, UserId, FullName, Email, RoleName, RoleId }
+  }
   return data;
 };
 
 const handleBlobResponse = async (res) => {
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
-    throw new Error(data.message || `HTTP ${res.status}`);
+    throw new Error(data.Message || `HTTP ${res.status}`);
   }
   return res.blob();
 };
