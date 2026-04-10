@@ -26,16 +26,16 @@ type TutorProfile = {
 
 function toSlstTime(utcStr: string): string {
   if (!utcStr) return "";
-  const d = new Date(utcStr.endsWith("Z") ? utcStr : utcStr + "Z");
-  d.setMinutes(d.getMinutes() + 330);
-  return d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
+  return new Date(utcStr.endsWith("Z") ? utcStr : utcStr + "Z").toLocaleTimeString("en-US", {
+    hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Colombo",
+  });
 }
 
 function toSlstDateStr(utcStr: string): string {
   if (!utcStr) return "";
-  const d = new Date(utcStr.endsWith("Z") ? utcStr : utcStr + "Z");
-  d.setMinutes(d.getMinutes() + 330);
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  return new Date(utcStr.endsWith("Z") ? utcStr : utcStr + "Z").toLocaleDateString("en-US", {
+    month: "short", day: "numeric", year: "numeric", timeZone: "Asia/Colombo",
+  });
 }
 
 const STATUS_STYLES: Record<string, { bg: string; text: string; dot: string }> = {

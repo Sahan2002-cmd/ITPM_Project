@@ -25,18 +25,17 @@ interface AvailabilitySlot {
   Status: string;
 }
 
-/** Convert a UTC datetime string to local SLST (UTC+5:30) "HH:MM AM/PM" */
+/** Convert a UTC datetime string to SLST (UTC+5:30) "HH:MM AM/PM" */
 function toSlstTime(utcStr: string): string {
-  const d = new Date(utcStr);
-  const slst = new Date(d.getTime() + 5.5 * 60 * 60 * 1000);
-  return slst.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
+  return new Date(utcStr).toLocaleTimeString("en-US", {
+    hour: "2-digit", minute: "2-digit", hour12: true,
+    timeZone: "Asia/Colombo",
+  });
 }
 
 /** Return SLST date as "YYYY-MM-DD" from a UTC datetime string */
 function toSlstDateKey(utcStr: string): string {
-  const d = new Date(utcStr);
-  const slst = new Date(d.getTime() + 5.5 * 60 * 60 * 1000);
-  return slst.toISOString().substring(0, 10);
+  return new Date(utcStr).toLocaleDateString("en-CA", { timeZone: "Asia/Colombo" });
 }
 
 const INDIVIDUAL_PRICE = 2000;

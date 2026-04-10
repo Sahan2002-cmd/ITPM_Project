@@ -46,6 +46,7 @@ export default function SessionReview() {
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [wouldRecommend, setWouldRecommend] = useState<boolean | null>(null);
 
   // Redirect if accessed without booking context
@@ -59,15 +60,40 @@ export default function SessionReview() {
     return null;
   }
 
-  const setRating = (key: string, val: number) => setRatings(r => ({ ...r, [key]: val }));
+  const setRating = (key: string, val: number) => {
+    setRatings(r => ({ ...r, [key]: val }));
+    // Clear field error when user interacts
+    if (key === "overall") setFieldErrors(e => { const n = { ...e }; delete n.overall; return n; });
+  };
   const toggleTag = (tag: string) => setTags(t => t.includes(tag) ? t.filter(x => x !== tag) : [...t, tag]);
+
+  const validateForm = (): boolean => {
+    const errs: Record<string, string> = {};
+
+    // Required: overall star rating
+    if (!ratings.overall) {
+      errs.overall = "Overall Experience rating is required.";
+    }
+
+    // Optional written review: if provided, minimum 10 chars
+    if (review.trim().length > 0 && review.trim().length < 10) {
+      errs.review = "Written review must be at least 10 characters if provided.";
+    }
+    // Maximum enforced by both textarea maxLength and backend
+    if (review.length > 1000) {
+      errs.review = "Written review must not exceed 1000 characters.";
+    }
+
+    setFieldErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
   const avgRating = Object.values(ratings).length
     ? (Object.values(ratings).reduce((a, b) => a + b, 0) / Object.values(ratings).length).toFixed(1)
     : "—";
 
   const handleSubmit = async () => {
-    if (!ratings.overall) {
-      setError("Please rate the Overall Experience before submitting.");
+    if (!validateForm()) {
+      setError("Please fix the errors below before submitting.");
       return;
     }
     setError("");
@@ -154,24 +180,31 @@ export default function SessionReview() {
         <h3 className="font-semibold text-slate-800 mb-4">Rate Your Experience</h3>
         <div className="space-y-4">
           {criteria.map(({ key, label }) => (
-            <div key={key} className="flex items-center justify-between">
-              <span className="text-sm text-slate-700">
-                {label}
-                {key === "overall" && <span className="text-rose-500 ml-1">*</span>}
-              </span>
-              <div className="flex gap-1">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <button
-                    key={i}
-                    onMouseEnter={() => setHover(h => ({ ...h, [key]: i + 1 }))}
-                    onMouseLeave={() => setHover(h => { const copy = { ...h }; delete copy[key]; return copy; })}
-                    onClick={() => setRating(key, i + 1)}
-                    className="transition-transform hover:scale-110"
-                  >
-                    <Star className={`w-6 h-6 transition-colors ${i < (hover[key] || ratings[key] || 0) ? "fill-amber-400 text-amber-400" : "text-slate-200 hover:text-amber-300"}`} />
-                  </button>
-                ))}
+            <div key={key}>
+              <div className="flex items-center justify-between">
+                <span className={`text-sm ${fieldErrors.overall && key === "overall" ? "text-rose-600 font-medium" : "text-slate-700"}`}>
+                  {label}
+                  {key === "overall" && <span className="text-rose-500 ml-1">*</span>}
+                </span>
+                <div className="flex gap-1">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <button
+                      key={i}
+                      onMouseEnter={() => setHover(h => ({ ...h, [key]: i + 1 }))}
+                      onMouseLeave={() => setHover(h => { const copy = { ...h }; delete copy[key]; return copy; })}
+                      onClick={() => setRating(key, i + 1)}
+                      className="transition-transform hover:scale-110"
+                    >
+                      <Star className={`w-6 h-6 transition-colors ${i < (hover[key] || ratings[key] || 0) ? "fill-amber-400 text-amber-400" : "text-slate-200 hover:text-amber-300"}`} />
+                    </button>
+                  ))}
+                </div>
               </div>
+              {key === "overall" && fieldErrors.overall && (
+                <p className="text-xs text-rose-600 flex items-center gap-1 mt-1">
+                  <AlertCircle className="w-3 h-3 flex-shrink-0" /> {fieldErrors.overall}
+                </p>
+              )}
             </div>
           ))}
         </div>
@@ -205,18 +238,36 @@ export default function SessionReview() {
 
       {/* Written Review */}
       <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm mb-5">
-        <h3 className="font-semibold text-slate-800 mb-3 flex items-center gap-2"><MessageSquare className="w-4 h-4 text-violet-600" /> Written Review</h3>
+        <h3 className="font-semibold text-slate-800 mb-3 flex items-center gap-2"><MessageSquare className="w-4 h-4 text-violet-600" /> Written Review <span className="text-slate-400 font-normal text-sm">(optional)</span></h3>
         <textarea
           value={review}
-          onChange={e => setReview(e.target.value)}
+          onChange={e => {
+            setReview(e.target.value);
+            // Clear review error as user types
+            if (fieldErrors.review) setFieldErrors(prev => { const n = { ...prev }; delete n.review; return n; });
+          }}
           placeholder="Share your experience in detail... What did you learn? How did the tutor help you?"
           rows={4}
           maxLength={1000}
-          className="w-full px-4 py-3 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 resize-none"
+          className={`w-full px-4 py-3 text-sm border rounded-xl focus:outline-none focus:ring-2 resize-none transition-colors ${
+            fieldErrors.review
+              ? "border-rose-300 focus:ring-rose-500/20 focus:border-rose-400 bg-rose-50"
+              : "border-slate-200 focus:ring-violet-500/20 focus:border-violet-400"
+          }`}
         />
         <div className="flex items-center justify-between mt-2">
-          <p className="text-xs text-slate-400">{review.length}/1000 characters</p>
-          <p className="text-xs text-slate-400">Minimum 50 characters recommended</p>
+          <div>
+            {fieldErrors.review ? (
+              <p className="text-xs text-rose-600 flex items-center gap-1">
+                <AlertCircle className="w-3 h-3 flex-shrink-0" /> {fieldErrors.review}
+              </p>
+            ) : (
+              <p className="text-xs text-slate-400">{review.length}/1000 characters</p>
+            )}
+          </div>
+          <p className={`text-xs ${review.trim().length > 0 && review.trim().length < 10 ? "text-amber-500 font-medium" : "text-slate-400"}`}>
+            {review.trim().length < 10 && review.trim().length > 0 ? `${10 - review.trim().length} more characters needed` : "Minimum 10 characters recommended"}
+          </p>
         </div>
       </div>
 

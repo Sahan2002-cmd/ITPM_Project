@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Check, Save, Clock, Plus, Trash2, AlertCircle } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
-import { getTutorProfileByUserId, createAvailabilitySlot, getAvailabilityByTutor } from "../services/Module_01_API";
+import { getTutorProfileByUserId, createAvailabilitySlot, getAvailabilityByTutor, deleteAvailabilitySlot } from "../services/Module_01_API";
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const HOURS = Array.from({ length: 24 }, (_, i) => {
@@ -29,15 +29,19 @@ function getNextFourOccurrences(dayName: string): Date[] {
   });
 }
 
-// Combine a base date and a time string like "9:00 AM" into a Date
+// Sri Lanka Standard Time offset (UTC+5:30)
+const SLST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
+
+// Combine a base date and a time string like "9:00 AM" into a UTC Date,
+// treating the time as Sri Lanka time (SLST = UTC+5:30).
 function buildDateTime(date: Date, timeStr: string): Date {
   const [rawTime, period] = timeStr.split(" ");
   let [h, m] = rawTime.split(":").map(Number);
   if (period === "PM" && h !== 12) h += 12;
   if (period === "AM" && h === 12) h = 0;
-  const d = new Date(date);
-  d.setHours(h, m, 0, 0);
-  return d;
+  // Interpret this hour:minute as SLST and return the equivalent UTC instant
+  const utcMs = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), h, m, 0, 0) - SLST_OFFSET_MS;
+  return new Date(utcMs);
 }
 
 // Convert a time string like "9:00 AM" to minutes from midnight for comparison
@@ -111,7 +115,7 @@ export default function AvailabilityCalendar() {
   });
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [timezone, setTimezone] = useState("Asia/Colombo");
+  const [resetting, setResetting] = useState(false);
   const [slotErrors, setSlotErrors] = useState<SlotErrors>({});
   const [saveError, setSaveError] = useState("");
 
@@ -175,6 +179,30 @@ export default function AvailabilityCalendar() {
 
       return { ...s, [day]: slots };
     });
+  };
+
+  // Reset: delete all existing Free slots for this tutor, then re-save fresh
+  const handleReset = async () => {
+    if (!tutorProfileId) {
+      setSaveError("Could not find your tutor profile. Please refresh and try again.");
+      return;
+    }
+    setSaveError("");
+    setResetting(true);
+
+    // Fetch existing Free slots and delete them all
+    try {
+      const existingRes = await getAvailabilityByTutor(tutorProfileId as any);
+      const existing: { Id: string; Status: string }[] = existingRes?.StatusCode === 1 && Array.isArray(existingRes.Data)
+        ? existingRes.Data
+        : [];
+      const freeSlots = existing.filter(s => s.Status === "Free");
+      await Promise.allSettled(freeSlots.map(s => deleteAvailabilitySlot(s.Id as any)));
+    } catch { /* non-critical — proceed to re-save */ }
+
+    setResetting(false);
+    // Now save a fresh schedule (existing slots are gone, so no duplicates)
+    await handleSave();
   };
 
   const handleSave = async () => {
@@ -279,13 +307,23 @@ export default function AvailabilityCalendar() {
           <p className="text-slate-500 mt-1">Set your weekly availability for tutoring sessions</p>
         </div>
         <div className="flex flex-col items-end gap-1.5">
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium transition-all ${saved ? "bg-emerald-500 text-white" : saving ? "bg-violet-400 text-white cursor-not-allowed" : "bg-violet-600 text-white hover:bg-violet-700"}`}
-          >
-            {saved ? <><Check className="w-4 h-4" /> Saved!</> : saving ? <><Clock className="w-4 h-4 animate-spin" /> Saving...</> : <><Save className="w-4 h-4" /> Save Schedule</>}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleReset}
+              disabled={saving || resetting}
+              title="Delete all existing slots and re-save with current schedule (fixes wrong times)"
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all border ${resetting ? "bg-rose-100 text-rose-400 border-rose-200 cursor-not-allowed" : "border-rose-300 text-rose-600 hover:bg-rose-50"}`}
+            >
+              {resetting ? <><Clock className="w-4 h-4 animate-spin" /> Resetting...</> : <><Trash2 className="w-4 h-4" /> Reset & Resave</>}
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={saving || resetting}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium transition-all ${saved ? "bg-emerald-500 text-white" : saving ? "bg-violet-400 text-white cursor-not-allowed" : "bg-violet-600 text-white hover:bg-violet-700"}`}
+            >
+              {saved ? <><Check className="w-4 h-4" /> Saved!</> : saving ? <><Clock className="w-4 h-4 animate-spin" /> Saving...</> : <><Save className="w-4 h-4" /> Save Schedule</>}
+            </button>
+          </div>
           {saveError && (
             <p className="text-xs text-rose-600 flex items-center gap-1">
               <AlertCircle className="w-3.5 h-3.5" /> {saveError}
@@ -308,16 +346,8 @@ export default function AvailabilityCalendar() {
         </div>
         <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
           <p className="text-sm text-slate-500 mb-2">Timezone</p>
-          <select value={timezone} onChange={e => setTimezone(e.target.value)}
-            className="w-full text-sm border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-violet-500/20 bg-white">
-            <option value="Asia/Colombo">Sri Lanka (SLST, GMT+5:30)</option>
-            <option value="America/New_York">Eastern (ET)</option>
-            <option value="America/Chicago">Central (CT)</option>
-            <option value="America/Denver">Mountain (MT)</option>
-            <option value="America/Los_Angeles">Pacific (PT)</option>
-            <option value="Europe/London">London (GMT)</option>
-            <option value="Asia/Tokyo">Tokyo (JST)</option>
-          </select>
+          <p className="text-sm font-semibold text-slate-800">Sri Lanka (SLST)</p>
+          <p className="text-xs text-slate-400 mt-0.5">GMT+5:30 — all times are SLST</p>
         </div>
       </div>
 
