@@ -1,16 +1,19 @@
-﻿using PeerLearningAndTutorialSystem.BusinessLayer;
+﻿using MongoDB.Driver;
+using PeerLearningAndTutorialSystem.BusinessLayer;
 using PeerLearningAndTutorialSystem.DataAccess;
+using PeerLearningAndTutorialSystem.DatabaseConnectivity;
+using PeerLearningAndTutorialSystem.Interfaces;
 using PeerLearningAndTutorialSystem.Models;
 using PeerLearningAndTutorialSystem.Models.RequestApiModels;
+using System;
 using System.Linq;
 using System.Net;
 using System.Web.Http;
 using System.Web.Http.Cors;
-
+using HttpDeleteAttribute = System.Web.Http.HttpDeleteAttribute;
 using HttpGetAttribute = System.Web.Http.HttpGetAttribute;
 using HttpPostAttribute = System.Web.Http.HttpPostAttribute;
 using HttpPutAttribute = System.Web.Http.HttpPutAttribute;
-using HttpDeleteAttribute = System.Web.Http.HttpDeleteAttribute;
 using RouteAttribute = System.Web.Http.RouteAttribute;
 
 /*
@@ -35,13 +38,19 @@ using RouteAttribute = System.Web.Http.RouteAttribute;
  */
 
 namespace PeerLearningAndTutorialSystem.Controllers
+
+
 {
     [EnableCors(origins: "*", headers: "*", methods: "*")]
     [RoutePrefix("api/outsessionmessage")]
     public class OutSessionMessageController : ApiController
-    {
-        private readonly DAOutSessionMessage _da = new DAOutSessionMessage();
 
+
+    {
+        private readonly IMongoCollection<OutSessionMessageModel> _messages;
+        private readonly IMongoCollection<BookingModel> _bookings;
+        private readonly DAOutSessionMessage _da = new DAOutSessionMessage();
+        private string NowIso() => DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ");
         // ── JWT helpers ───────────────────────────────────────────────────
         private int GetCallerId()
         {
@@ -81,20 +90,64 @@ namespace PeerLearningAndTutorialSystem.Controllers
         //  POST  /api/outsessionmessage/send
         //  Sends a new out-session message (before or after session).
         // ════════════════════════════════════════════════════════════════
-        [HttpPost]
-        [Route("send")]
-        public IHttpActionResult SendMessage([FromBody] OutSessionMessageRequestApi request)
+        // 002 – SEND MESSAGE
+        public Response SendMessage(OutSessionMessageRequestApi request)
         {
-            int callerId = GetCallerId();
-            if (callerId == 0)
-                return Content(HttpStatusCode.Unauthorized, Response.Fail("Unauthorized. Please log in."));
 
-            if (request == null)
-                return BadRequest("Request body is required.");
+            try
+            {
+                if (string.IsNullOrWhiteSpace(request.MessageText))
+                    return Response.Fail("Message text cannot be empty.");
 
-            request.SenderId = callerId;
+                // Allow direct chat with bookingId = -1 (no session check)
+                if (request.BookingId != -1)
+                {
+                    var booking = _bookings.Find(b => b.BookingId == request.BookingId).FirstOrDefault();
+                    if (booking == null || !(booking.Status == "Completed" || booking.Status == "Confirmed" || booking.Status == "Pending"))
+                        return Response.Fail("Out-session messages allowed only for Completed, Confirmed, or Pending sessions.");
+                }
 
-            return Ok(_da.SendMessage(request));
+                var msg = new OutSessionMessageModel
+                {
+                    OutMessageId = CounterHelper.GetNextSequence("outMessageId"),
+                    BookingId = request.BookingId.Value,
+                    SenderId = request.SenderId.Value,
+                    ReceiverId = request.ReceiverId.Value,
+                    MessageText = request.MessageText.Trim(),
+                    IsRead = false,
+                    EditedAt = null,
+                    IsDeleted = false,
+                    DeletedAt = null,
+                    AdminDeleteReason = null,
+                    CreatedBy = request.SenderId,
+                    CreatedAt = NowIso(),
+                    UpdatedBy = null,
+                    UpdatedAt = null
+                };
+                _messages.InsertOne(msg);
+                return Response.Success(null, "Message sent.");
+            }
+            catch (Exception ex) { return Response.Error(ex.Message); }
+        }
+
+        [HttpGet]
+        [Route("direct/{otherUserId:int}")]
+        public IHttpActionResult GetDirectMessages(int otherUserId)
+        {
+            int currentUserId = GetCallerId();
+            if (currentUserId == 0) return Unauthorized();
+            return Ok(_da.GetDirectMessages(currentUserId, otherUserId));
+        }
+
+        [HttpPost]
+        [Route("direct/send")]
+        public IHttpActionResult SendDirectMessage([FromBody] DirectMessageRequest request)
+        {
+            int currentUserId = GetCallerId();
+            if (currentUserId == 0) return Unauthorized();
+            if (request?.ReceiverId == null || string.IsNullOrWhiteSpace(request.MessageText))
+                return BadRequest("ReceiverId and MessageText are required.");
+            return Ok(_da.SendDirectMessage(currentUserId, request.ReceiverId.Value, request.MessageText));
         }
 
         // ════════════════════════════════════════════════════════════════
@@ -167,6 +220,22 @@ namespace PeerLearningAndTutorialSystem.Controllers
                 return Content(HttpStatusCode.Unauthorized, Response.Fail("Unauthorized. Please log in."));
 
             return Ok(_da.MarkRead(bookingId, callerId));
+        }
+
+        public class DirectMessageRequest
+        {
+            public int? ReceiverId { get; set; }
+            public string MessageText { get; set; }
+        }
+
+
+        [HttpGet]
+        [Route("conversations")]
+        public IHttpActionResult GetConversations()
+        {
+            int userId = GetCallerId();
+            if (userId == 0) return Unauthorized();
+            return Ok(_da.GetConversationPartners(userId));
         }
     }
 }
