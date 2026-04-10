@@ -401,7 +401,6 @@
     <Compile Include="DataAccess\DAOutSessionMessage.cs" />
     <Compile Include="DataAccess\DAPayment.cs" />
     <Compile Include="DataAccess\DARating.cs" />
-    <Compile Include="DataAccess\DARecording.cs" />
     <Compile Include="DataAccess\DASessionNote.cs" />
     <Compile Include="DataAccess\DATutorProfile.cs" />
     <Compile Include="DataAccess\DAUser.cs" />
@@ -420,7 +419,6 @@
     <Compile Include="Interfaces\IOutSessionMessage.cs" />
     <Compile Include="Interfaces\IPayment.cs" />
     <Compile Include="Interfaces\IRating.cs" />
-    <Compile Include="Interfaces\IRecording.cs" />
     <Compile Include="Interfaces\ISessionNote.cs" />
     <Compile Include="Interfaces\ITutorProfile.cs" />
     <Compile Include="Interfaces\IUser.cs" />
@@ -435,7 +433,6 @@
     <Compile Include="Models\PaymentModel.cs" />
     <Compile Include="Models\ProcedureDBModel.cs" />
     <Compile Include="Models\RatingModel.cs" />
-    <Compile Include="Models\RecordingModel.cs" />
     <Compile Include="Models\RequestApiModels\AnalyticsRequestApi.cs" />
     <Compile Include="Models\RequestApiModels\AvailabilityRequestApi.cs" />
     <Compile Include="Models\RequestApiModels\BookingRequestApi.cs" />
@@ -447,7 +444,6 @@
     <Compile Include="Models\RequestApiModels\PaymentRequestApi.cs" />
     <Compile Include="Models\RequestApiModels\ProfileImageRequest.cs" />
     <Compile Include="Models\RequestApiModels\RatingRequestApi.cs" />
-    <Compile Include="Models\RequestApiModels\RecordingRequestApi.cs" />
     <Compile Include="Models\RequestApiModels\SessionNoteRequestApi.cs" />
     <Compile Include="Models\RequestApiModels\TutorProfileRequestApi.cs" />
     <Compile Include="Models\RequestApiModels\TutorSubjectRequestApi.cs" />
