@@ -381,14 +381,12 @@
     <Compile Include="Controllers\BookingController.cs" />
     <Compile Include="Controllers\DashboardController.cs" />
     <Compile Include="Controllers\FileResourceController.cs" />
-    <Compile Include="Controllers\flagController.cs" />
     <Compile Include="Controllers\HomeController.cs" />
     <Compile Include="Controllers\InSessionMessageController.cs" />
     <Compile Include="Controllers\NotificationController.cs" />
     <Compile Include="Controllers\OutSessionMessageController.cs" />
     <Compile Include="Controllers\PaymentController.cs" />
     <Compile Include="Controllers\RatingController.cs" />
-    <Compile Include="Controllers\RecordingController.cs" />
     <Compile Include="Controllers\AdminReportController.cs" />
     <Compile Include="Controllers\SessionNoteController.cs" />
     <Compile Include="Controllers\TutorProfileController.cs" />
@@ -526,6 +524,8 @@
     <Folder Include="Views\FileResource\" />
     <Folder Include="Views\flag\" />
     <Folder Include="Views\InSessionMessage\" />
+    <Folder Include="Views\meeting\" />
+    <Folder Include="Views\note\" />
     <Folder Include="Views\Notification\" />
     <Folder Include="Views\OutSessionMessage\" />
     <Folder Include="Views\Payment\" />
