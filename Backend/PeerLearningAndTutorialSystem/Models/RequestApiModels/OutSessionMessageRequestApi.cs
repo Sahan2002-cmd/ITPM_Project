@@ -13,5 +13,6 @@ namespace PeerLearningAndTutorialSystem.Models.RequestApiModels
         public int? ReceiverId { get; set; }
         public string MessageText { get; set; }
         public string AdminDeleteReason { get; set; }
+        public string ConversationKey { get; set; }
     }
 }

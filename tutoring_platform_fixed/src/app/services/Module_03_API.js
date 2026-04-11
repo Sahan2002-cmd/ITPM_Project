@@ -568,3 +568,38 @@ export const downloadSessionNotesPdf = async () => {
   });
   return handleBlobResponse(res);
 };
+
+export const getDirectMessages = async (otherUserId) => {
+  const res = await fetch(`${BASE_URL}/outsessionmessage/direct/${otherUserId}`, {
+    headers: getAuthHeaders(),
+  });
+  return handleResponse(res);
+};
+
+export const sendDirectMessage = async (receiverId, messageText) => {
+  const res = await fetch(`${BASE_URL}/outsessionmessage/direct/send`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ receiverId, messageText }),
+  });
+  return handleResponse(res);
+};
+export const getConversationPartners = async () => {
+  const res = await fetch(`${BASE_URL}/outsessionmessage/conversations`, {
+    headers: getAuthHeaders(),
+  });
+  return handleResponse(res);
+};
+
+export const getUserById = async (userId) => {
+  const res = await fetch(`${BASE_URL}/user/${userId}`, {
+    headers: getAuthHeaders(),
+  });
+  return handleResponse(res);
+};
+export const getBasicUserInfo = async (userId) => {
+  const res = await fetch(`${BASE_URL}/user/basic/${userId}`, {
+    headers: getAuthHeaders(),
+  });
+  return handleResponse(res);
+};
