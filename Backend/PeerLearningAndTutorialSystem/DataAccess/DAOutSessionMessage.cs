@@ -6,6 +6,7 @@ using PeerLearningAndTutorialSystem.Models;
 using PeerLearningAndTutorialSystem.Models.RequestApiModels;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace PeerLearningAndTutorialSystem.DataAccess
 {
@@ -161,6 +162,83 @@ namespace PeerLearningAndTutorialSystem.DataAccess
         {
             var all = _messages.Find(m => !m.IsDeleted).ToList();
             return Response.Success(all);
+        }
+
+        // Helper to generate a conversation key from two user IDs
+        // Helper to generate a conversation key
+        private string GetConversationKey(int userId1, int userId2)
+        {
+            int a = Math.Min(userId1, userId2);
+            int b = Math.Max(userId1, userId2);
+            return $"{a}_{b}";
+        }
+
+        public Response SendDirectMessage(int senderId, int receiverId, string messageText)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(messageText))
+                    return Response.Fail("Message text cannot be empty.");
+
+                var msg = new OutSessionMessageModel
+                {
+                    OutMessageId = CounterHelper.GetNextSequence("outMessageId"),
+                    BookingId = -1,
+                    ConversationKey = GetConversationKey(senderId, receiverId),
+                    SenderId = senderId,
+                    ReceiverId = receiverId,
+                    MessageText = messageText.Trim(),
+                    IsRead = false,
+                    EditedAt = null,
+                    IsDeleted = false,
+                    DeletedAt = null,
+                    AdminDeleteReason = null,
+                    CreatedBy = senderId,
+                    CreatedAt = NowIso(),
+                    UpdatedBy = null,
+                    UpdatedAt = null
+                };
+                _messages.InsertOne(msg);
+                return Response.Success(msg, "Message sent.");
+            }
+            catch (Exception ex) { return Response.Error(ex.Message); }
+        }
+
+        public Response GetDirectMessages(int userId1, int userId2)
+        {
+            try
+            {
+                string key = GetConversationKey(userId1, userId2);
+                var filter = Builders<OutSessionMessageModel>.Filter.And(
+                    Builders<OutSessionMessageModel>.Filter.Eq(m => m.ConversationKey, key),
+                    Builders<OutSessionMessageModel>.Filter.Eq(m => m.IsDeleted, false)
+                );
+                var list = _messages.Find(filter).SortBy(m => m.CreatedAt).ToList();
+                return Response.Success(list);
+            }
+            catch (Exception ex) { return Response.Error(ex.Message); }
+        }
+
+        public Response GetConversationPartners(int userId)
+        {
+            try
+            {
+                var senderIds = _messages.Find(m => m.SenderId == userId && !m.IsDeleted)
+                                         .Project(m => m.ReceiverId).ToList();
+                var receiverIds = _messages.Find(m => m.ReceiverId == userId && !m.IsDeleted)
+                                           .Project(m => m.SenderId).ToList();
+                var partnerIds = senderIds.Union(receiverIds).Distinct().ToList();
+
+                // If no conversations yet, return all active tutors
+                if (partnerIds.Count == 0)
+                {
+                    var tutors = new DAUser().GetAllTutors();
+                    if (tutors.StatusCode == 1 && tutors.Data is List<UserModel> tutorList)
+                        partnerIds = tutorList.Select(t => t.UserId).ToList();
+                }
+                return Response.Success(partnerIds);
+            }
+            catch (Exception ex) { return Response.Error(ex.Message); }
         }
     }
 }

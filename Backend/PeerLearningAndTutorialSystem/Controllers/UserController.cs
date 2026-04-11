@@ -350,5 +350,24 @@ namespace PeerLearningAndTutorialSystem.Controllers
         {
             public string OtpCode { get; set; }
         }
+
+        [HttpGet]
+        [Route("basic/{id:int}")]
+        public IHttpActionResult GetBasicUserInfo(int id)
+        {
+            int callerId = GetCallerUserId();
+            if (callerId == 0) return Unauthorized();
+            var result = _da.GetUserById(id);
+            if (result.StatusCode != 1) return NotFound();
+            var user = result.Data as UserModel;
+            return Ok(new
+            {
+                userId = user.UserId,
+                fullName = user.FullName,
+                email = user.Email,
+                roleName = user.RoleName,
+                profileImage = user.ProfileImage
+            });
+        }
     }
 }
