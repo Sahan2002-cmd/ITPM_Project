@@ -1,3 +1,78 @@
-Kavindu/
-**/bin/
-**/obj/
+# ============================================================
+# ASP.NET / C# Backend
+# ============================================================
+
+# Build output
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+
+# Visual Studio files
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.vcxproj.filters
+
+# NuGet packages
+packages/
+*.nupkg
+*.snupkg
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# MSBuild
+*.binlog
+
+# Publish output
+publish/
+PublishProfiles/
+
+# Log files
+*.log
+
+# Rider
+.idea/
+
+# ============================================================
+# Node.js / React / Vite Frontend (tutoring_platform_fixed)
+# ============================================================
+
+# Dependencies
+tutoring_platform_fixed/node_modules/
+
+# Build output
+tutoring_platform_fixed/dist/
+tutoring_platform_fixed/.output/
+
+# Vite cache
+tutoring_platform_fixed/.vite/
+
+# Environment variables
+tutoring_platform_fixed/.env
+tutoring_platform_fixed/.env.local
+tutoring_platform_fixed/.env.*.local
+
+# TypeScript cache
+tutoring_platform_fixed/*.tsbuildinfo
+
+# ============================================================
+# General
+# ============================================================
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor directories
+.vscode/settings.json
+.vscode/launch.json
+.vscode/tasks.json
+
+# Temporary files
+*.tmp
+*.temp
+*~

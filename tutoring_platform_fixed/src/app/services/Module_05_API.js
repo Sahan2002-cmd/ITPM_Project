@@ -25,7 +25,7 @@
  *   - Student is notified before auto-deletion
  */
 
-const BASE_URL = "http://localhost:5000/api";
+const BASE_URL = "http://localhost:55708/api";
 
 const getAuthHeaders = () => {
   const token = localStorage.getItem("token");

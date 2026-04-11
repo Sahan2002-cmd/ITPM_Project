@@ -1,194 +1,288 @@
-import { useState } from "react";
-import { Shield, AlertTriangle, Check, X, Eye, MessageSquare, Ban, ChevronDown, Search, Filter, Flag } from "lucide-react";
-import { tutors, TUTOR_IMAGES } from "../data/mockData";
+import { useState, useEffect } from "react";
+import { Shield, AlertTriangle, Check, X, ChevronDown, Search, MessageSquare, Star } from "lucide-react";
+import { getPendingFeedback, moderateFeedback, getAllRatings } from "../services/Module_04_API";
 
-type Report = {
-  id: string;
-  type: "content" | "behavior" | "fraud" | "spam";
-  title: string;
-  reporter: string;
-  reported: string;
-  reportedAvatar: string;
-  date: string;
-  status: "pending" | "reviewing" | "resolved" | "dismissed";
-  priority: "high" | "medium" | "low";
-  description: string;
-  sessionId: string;
+type PendingRating = {
+  RatingId: number;
+  BookingId: number;
+  TutorProfileId: string;
+  TutorId: number;
+  StudentId: number;
+  Stars: number;
+  Feedback: string | null;
+  FeedbackStatus: string;
+  CreatedAt: string;
 };
 
-const reports: Report[] = [
-  { id: "r1", type: "content", title: "Inappropriate content shared during session", reporter: "Emma T.", reported: "Unknown Tutor", reportedAvatar: TUTOR_IMAGES.james, date: "Mar 3, 2026", status: "pending", priority: "high", description: "Student reports that tutor shared adult content during a math session via screen share.", sessionId: "#S-1024" },
-  { id: "r2", type: "behavior", title: "Tutor was rude and dismissive", reporter: "Marcus R.", reported: "Alex Rivera", reportedAvatar: TUTOR_IMAGES.alex, date: "Mar 2, 2026", status: "reviewing", priority: "medium", description: "Student felt belittled when asking questions. Tutor made sarcastic remarks.", sessionId: "#S-1019" },
-  { id: "r3", type: "fraud", title: "Tutor credentials appear falsified", reporter: "Admin System", reported: "James Williams", reportedAvatar: TUTOR_IMAGES.james, date: "Mar 1, 2026", status: "reviewing", priority: "high", description: "Automated system detected possible credential mismatch. University confirmation pending.", sessionId: "#T-445" },
-  { id: "r4", type: "spam", title: "Excessive promotional messages", reporter: "Priya K.", reported: "Sarah Johnson", reportedAvatar: TUTOR_IMAGES.sarah, date: "Feb 28, 2026", status: "resolved", priority: "low", description: "Tutor sent 12 promotional messages within one day. Exceeds platform messaging limits.", sessionId: "#MSG-220" },
-  { id: "r5", type: "behavior", title: "No-show without cancellation", reporter: "David L.", reported: "Mei Chen", reportedAvatar: TUTOR_IMAGES.mei, date: "Feb 27, 2026", status: "dismissed", priority: "low", description: "Tutor did not attend the scheduled session and did not cancel beforehand.", sessionId: "#S-1010" },
-];
-
-const TYPE_STYLES: Record<string, string> = {
-  content: "bg-rose-100 text-rose-700",
-  behavior: "bg-amber-100 text-amber-700",
-  fraud: "bg-red-100 text-red-800",
-  spam: "bg-slate-100 text-slate-600",
-};
-
-const STATUS_STYLES: Record<string, { bg: string; text: string; dot: string }> = {
-  pending: { bg: "bg-amber-50", text: "text-amber-700", dot: "bg-amber-500" },
-  reviewing: { bg: "bg-blue-50", text: "text-blue-700", dot: "bg-blue-500" },
-  resolved: { bg: "bg-emerald-50", text: "text-emerald-700", dot: "bg-emerald-500" },
-  dismissed: { bg: "bg-slate-50", text: "text-slate-500", dot: "bg-slate-400" },
-};
-
-const PRIORITY_COLORS: Record<string, string> = {
-  high: "text-rose-600",
-  medium: "text-amber-600",
-  low: "text-slate-400",
-};
+function toSlstDateStr(utcStr: string) {
+  if (!utcStr) return "";
+  const d = new Date(utcStr.endsWith("Z") ? utcStr : utcStr + "Z");
+  d.setMinutes(d.getMinutes() + 330);
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
 
 export default function AdminModeration() {
-  const [filter, setFilter] = useState("all");
+  const [activeTab, setActiveTab] = useState<'pending' | 'all'>('pending');
+  const [ratings, setRatings] = useState<PendingRating[]>([]);
+  const [allRatingsData, setAllRatingsData] = useState<PendingRating[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [allLoading, setAllLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [expanded, setExpanded] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<number | null>(null);
+  const [actionLoading, setActionLoading] = useState<number | null>(null);
+  const [actionError, setActionError] = useState("");
 
-  const filtered = reports.filter(r => {
-    const matchFilter = filter === "all" || r.status === filter;
-    const matchSearch = r.title.toLowerCase().includes(search.toLowerCase()) || r.reporter.toLowerCase().includes(search.toLowerCase());
-    return matchFilter && matchSearch;
-  });
-
-  const counts = {
-    pending: reports.filter(r => r.status === "pending").length,
-    reviewing: reports.filter(r => r.status === "reviewing").length,
-    resolved: reports.filter(r => r.status === "resolved").length,
-    dismissed: reports.filter(r => r.status === "dismissed").length,
+  const fetchPending = async () => {
+    setLoading(true);
+    try {
+      const res = await getPendingFeedback();
+      if (res?.StatusCode === 1) setRatings(Array.isArray(res.Data) ? res.Data : []);
+    } catch {
+      // show empty state
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const fetchAll = async () => {
+    setAllLoading(true);
+    try {
+      const res = await getAllRatings();
+      if (res?.StatusCode === 1) setAllRatingsData(Array.isArray(res.Data) ? res.Data : []);
+    } catch {
+      // show empty state
+    } finally {
+      setAllLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchPending(); fetchAll(); }, []);
+
+  const handleModerate = async (ratingId: number, status: "Approved" | "Rejected") => {
+    setActionLoading(ratingId);
+    setActionError("");
+    try {
+      const res = await moderateFeedback(ratingId, status);
+      if (res?.StatusCode === 1) {
+        setRatings(prev => prev.filter(r => r.RatingId !== ratingId));
+        setAllRatingsData(prev => prev.map(r =>
+          r.RatingId === ratingId ? { ...r, FeedbackStatus: status } : r
+        ));
+        setExpanded(null);
+      } else {
+        setActionError(res?.Message || "Action failed. Please try again.");
+      }
+    } catch {
+      setActionError("Action failed. Please try again.");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const filtered = (activeTab === 'pending' ? ratings : allRatingsData).filter(r => {
+    if (!search.trim()) return true;
+    const q = search.toLowerCase();
+    return (
+      String(r.StudentId).includes(q) ||
+      String(r.TutorId).includes(q) ||
+      (r.Feedback?.toLowerCase().includes(q) ?? false)
+    );
+  });
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
+      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-            <Shield className="w-6 h-6 text-rose-600" /> Session Moderation
+            <Shield className="w-6 h-6 text-rose-600" /> Rating Moderation
           </h1>
-          <p className="text-slate-500 mt-1">Review and manage platform safety reports</p>
+          <p className="text-slate-500 mt-1">Review and approve student feedback before publishing</p>
         </div>
-        <div className="flex items-center gap-2">
-          {counts.pending > 0 && (
-            <span className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-100 text-rose-700 rounded-full text-sm font-medium">
-              <AlertTriangle className="w-3.5 h-3.5" /> {counts.pending} pending review
-            </span>
+        {!loading && ratings.length > 0 && (
+          <span className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-100 text-rose-700 rounded-full text-sm font-medium">
+            <AlertTriangle className="w-3.5 h-3.5" /> {ratings.length} pending review
+          </span>
+        )}
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-2 mb-6">
+        <button
+          onClick={() => { setActiveTab('pending'); setExpanded(null); }}
+          className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
+            activeTab === 'pending'
+              ? 'bg-rose-600 text-white shadow-md shadow-rose-500/20'
+              : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+          }`}
+        >
+          Pending Approval
+          {!loading && (
+            <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-xs ${
+              activeTab === 'pending' ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-700'
+            }`}>{ratings.length}</span>
           )}
-        </div>
+        </button>
+        <button
+          onClick={() => { setActiveTab('all'); setExpanded(null); }}
+          className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
+            activeTab === 'all'
+              ? 'bg-slate-800 text-white shadow-md'
+              : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+          }`}
+        >
+          All Reviews
+          {!allLoading && (
+            <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-xs ${
+              activeTab === 'all' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
+            }`}>{allRatingsData.length}</span>
+          )}
+        </button>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-4 mb-6">
-        {[
-          { label: "Pending", count: counts.pending, color: "text-amber-600", bg: "bg-amber-50" },
-          { label: "Reviewing", count: counts.reviewing, color: "text-blue-600", bg: "bg-blue-50" },
-          { label: "Resolved", count: counts.resolved, color: "text-emerald-600", bg: "bg-emerald-50" },
-          { label: "Dismissed", count: counts.dismissed, color: "text-slate-500", bg: "bg-slate-50" },
-        ].map(({ label, count, color, bg }) => (
-          <div key={label} className={`${bg} rounded-2xl border border-slate-200 p-4 text-center cursor-pointer hover:opacity-80 transition-opacity`} onClick={() => setFilter(label.toLowerCase())}>
-            <p className={`text-2xl font-bold ${color}`}>{count}</p>
-            <p className="text-sm text-slate-500 mt-1">{label}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Filters */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm mb-5 flex gap-3 flex-wrap">
-        <div className="relative flex-1 min-w-48">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search reports..."
-            className="w-full pl-9 pr-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400" />
+      <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="bg-amber-50 rounded-2xl border border-slate-200 p-4 text-center">
+          <p className="text-2xl font-bold text-amber-600">{loading ? "—" : ratings.length}</p>
+          <p className="text-sm text-slate-500 mt-1">Pending Approval</p>
         </div>
-        {["all", "pending", "reviewing", "resolved", "dismissed"].map(f => (
-          <button key={f} onClick={() => setFilter(f)}
-            className={`px-4 py-2.5 rounded-xl text-sm font-medium capitalize transition-all ${filter === f ? "bg-violet-600 text-white" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"}`}>
-            {f === "all" ? "All Reports" : f}
-          </button>
-        ))}
+        <div className="bg-emerald-50 rounded-2xl border border-slate-200 p-4 text-center">
+          <p className="text-2xl font-bold text-emerald-600">
+            {allLoading ? "—" : allRatingsData.filter(r => r.FeedbackStatus === 'Approved').length}
+          </p>
+          <p className="text-sm text-slate-500 mt-1">Approved</p>
+        </div>
+        <div className="bg-violet-50 rounded-2xl border border-slate-200 p-4 text-center">
+          <p className="text-2xl font-bold text-violet-600">{allLoading ? "—" : allRatingsData.length}</p>
+          <p className="text-sm text-slate-500 mt-1">Total Reviews</p>
+        </div>
       </div>
 
-      {/* Reports List */}
-      <div className="space-y-3">
-        {filtered.map(report => {
-          const statusStyle = STATUS_STYLES[report.status];
-          const isExpanded = expanded === report.id;
-
-          return (
-            <div key={report.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden hover:border-slate-300 transition-all">
-              {/* Main Row */}
-              <div className="flex items-center gap-4 p-5 cursor-pointer" onClick={() => setExpanded(isExpanded ? null : report.id)}>
-                <img src={report.reportedAvatar} alt={report.reported} className="w-10 h-10 rounded-xl object-cover flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start gap-2 flex-wrap">
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${TYPE_STYLES[report.type]}`}>{report.type}</span>
-                    <span className={`text-sm font-semibold ${PRIORITY_COLORS[report.priority]}`}>●</span>
-                    <p className="text-sm font-medium text-slate-800">{report.title}</p>
-                  </div>
-                  <div className="flex items-center gap-3 mt-1 text-xs text-slate-400 flex-wrap">
-                    <span>Session {report.sessionId}</span>
-                    <span>Reporter: {report.reporter}</span>
-                    <span>Reported: {report.reported}</span>
-                    <span>{report.date}</span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${statusStyle.bg} ${statusStyle.text}`}>
-                    <span className={`w-1.5 h-1.5 rounded-full ${statusStyle.dot}`} />
-                    {report.status.charAt(0).toUpperCase() + report.status.slice(1)}
-                  </span>
-                  <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
-                </div>
-              </div>
-
-              {/* Expanded */}
-              {isExpanded && (
-                <div className="border-t border-slate-100 p-5 bg-slate-50">
-                  <div className="bg-white rounded-xl p-4 mb-4 border border-slate-200">
-                    <p className="text-xs text-slate-500 mb-1 font-medium">Report Description</p>
-                    <p className="text-sm text-slate-700">{report.description}</p>
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="flex flex-wrap gap-2">
-                    <button className="flex items-center gap-1.5 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 hover:bg-slate-50 transition-colors">
-                      <Eye className="w-4 h-4 text-violet-500" /> Review Session
-                    </button>
-                    <button className="flex items-center gap-1.5 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 hover:bg-slate-50 transition-colors">
-                      <MessageSquare className="w-4 h-4 text-blue-500" /> Contact Users
-                    </button>
-                    {report.status !== "resolved" && (
-                      <button className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 transition-colors">
-                        <Check className="w-4 h-4" /> Mark Resolved
-                      </button>
-                    )}
-                    {report.status !== "dismissed" && report.status !== "resolved" && (
-                      <button className="flex items-center gap-1.5 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-600 hover:bg-slate-50 transition-colors">
-                        <X className="w-4 h-4 text-slate-400" /> Dismiss
-                      </button>
-                    )}
-                    {report.priority === "high" && report.status !== "resolved" && (
-                      <button className="flex items-center gap-1.5 px-4 py-2 bg-rose-600 text-white rounded-xl text-sm font-medium hover:bg-rose-700 transition-colors ml-auto">
-                        <Ban className="w-4 h-4" /> Suspend Account
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
+      {/* Search */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm mb-5">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search by student ID, tutor ID, or feedback text..."
+            className="w-full pl-9 pr-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400"
+          />
+        </div>
       </div>
 
-      {filtered.length === 0 && (
+      {actionError && (
+        <div className="mb-4 px-4 py-3 bg-rose-50 border border-rose-200 rounded-xl text-sm text-rose-700">
+          {actionError}
+        </div>
+      )}
+
+      {/* Rating List */}
+      {(activeTab === 'pending' ? loading : allLoading) ? (
+        <div className="text-center py-16 text-slate-400 text-sm">Loading ratings...</div>
+      ) : filtered.length === 0 ? (
         <div className="text-center py-16">
           <div className="w-16 h-16 bg-emerald-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <Shield className="w-8 h-8 text-emerald-500" />
           </div>
-          <p className="text-slate-600 font-medium">No reports found</p>
-          <p className="text-slate-400 text-sm mt-1">The platform is looking clean!</p>
+          <p className="text-slate-600 font-medium">
+            {activeTab === 'pending' ? 'No pending ratings' : 'No reviews found'}
+          </p>
+          <p className="text-slate-400 text-sm mt-1">
+            {search.trim() ? "No results match your search." : activeTab === 'pending' ? "All feedback has been reviewed!" : "No reviews have been submitted yet."}
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {filtered.map(rating => {
+            const isExpanded = expanded === rating.RatingId;
+            const isActioning = actionLoading === rating.RatingId;
+
+            return (
+              <div key={rating.RatingId} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden hover:border-slate-300 transition-all">
+                {/* Main Row */}
+                <div
+                  className="flex items-center gap-4 p-5 cursor-pointer"
+                  onClick={() => setExpanded(isExpanded ? null : rating.RatingId)}
+                >
+                  <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center flex-shrink-0">
+                    <Star className="w-5 h-5 fill-amber-500 text-amber-500" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {/* Stars visual */}
+                      <div className="flex items-center gap-0.5">
+                        {[1, 2, 3, 4, 5].map(n => (
+                          <Star
+                            key={n}
+                            className={`w-3.5 h-3.5 ${n <= rating.Stars ? "fill-amber-400 text-amber-400" : "text-slate-200"}`}
+                          />
+                        ))}
+                      </div>
+                      {/* Status badge — context-aware */}
+                      {rating.FeedbackStatus === 'Approved' ? (
+                        <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-full text-[10px] font-bold uppercase">Approved</span>
+                      ) : rating.FeedbackStatus === 'Rejected' ? (
+                        <span className="px-2 py-0.5 bg-rose-50 text-rose-700 rounded-full text-[10px] font-bold uppercase">Rejected</span>
+                      ) : (
+                        <span className="px-2 py-0.5 bg-amber-50 text-amber-700 rounded-full text-[10px] font-bold uppercase">Pending Approval</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3 mt-1 text-xs text-slate-400 flex-wrap">
+                      <span>Rating #{rating.RatingId}</span>
+                      <span>Student ID: {rating.StudentId}</span>
+                      <span>Tutor ID: {rating.TutorId}</span>
+                      <span>Booking #{rating.BookingId}</span>
+                      <span>{toSlstDateStr(rating.CreatedAt)}</span>
+                    </div>
+                    {rating.Feedback && (
+                      <p className="text-xs text-slate-500 mt-1 truncate max-w-lg">{rating.Feedback}</p>
+                    )}
+                  </div>
+                  <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform flex-shrink-0 ${isExpanded ? "rotate-180" : ""}`} />
+                </div>
+
+                {/* Expanded Panel */}
+                {isExpanded && (
+                  <div className="border-t border-slate-100 p-5 bg-slate-50">
+                    <div className="bg-white rounded-xl p-4 mb-4 border border-slate-200">
+                      <p className="text-xs text-slate-500 mb-1 font-medium flex items-center gap-1">
+                        <MessageSquare className="w-3.5 h-3.5" /> Student Feedback
+                      </p>
+                      {rating.Feedback ? (
+                        <p className="text-sm text-slate-700">{rating.Feedback}</p>
+                      ) : (
+                        <p className="text-sm text-slate-400 italic">No written feedback provided.</p>
+                      )}
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      {rating.FeedbackStatus === 'Pending Approval' && (
+                        <>
+                      <button
+                        onClick={() => handleModerate(rating.RatingId, "Approved")}
+                        disabled={isActioning}
+                        className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50"
+                      >
+                        <Check className="w-4 h-4" />
+                        {isActioning ? "Processing..." : "Approve & Publish"}
+                      </button>
+                      <button
+                        onClick={() => handleModerate(rating.RatingId, "Rejected")}
+                        disabled={isActioning}
+                        className="flex items-center gap-1.5 px-4 py-2 bg-rose-600 text-white rounded-xl text-sm font-medium hover:bg-rose-700 transition-colors disabled:opacity-50"
+                      >
+                        <X className="w-4 h-4" />
+                        {isActioning ? "Processing..." : "Reject"}
+                      </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

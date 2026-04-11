@@ -1,7 +1,17 @@
-import { useState } from "react";
-import { useNavigate } from "react-router";
-import { Star, Send, Check, ThumbsUp, MessageSquare } from "lucide-react";
-import { tutors } from "../data/mockData";
+import { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router";
+import { Star, Send, Check, ThumbsUp, MessageSquare, AlertCircle } from "lucide-react";
+import { submitRating } from "../services/Module_04_API";
+import { useAuth } from "../contexts/AuthContext";
+
+type ReviewState = {
+  bookingId: number | string;
+  tutorProfileId: string;
+  tutorId: number;
+  tutorName: string;
+  sessionDate: string;
+  subject: string;
+};
 
 const criteria = [
   { key: "overall", label: "Overall Experience" },
@@ -16,23 +26,105 @@ const suggestions = [
   "Engaging teaching style", "Helpful homework", "Responsive to questions", "On time",
 ];
 
+function toSlstDateStr(utcStr: string): string {
+  if (!utcStr) return "";
+  const d = new Date(utcStr.endsWith("Z") ? utcStr : utcStr + "Z");
+  d.setMinutes(d.getMinutes() + 330);
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
 export default function SessionReview() {
   const navigate = useNavigate();
-  const tutor = tutors[0];
+  const location = useLocation();
+  const { user } = useAuth();
+  const state = location.state as ReviewState | null;
+
   const [ratings, setRatings] = useState<Record<string, number>>({});
   const [hover, setHover] = useState<Record<string, number>>({});
   const [review, setReview] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [wouldRecommend, setWouldRecommend] = useState<boolean | null>(null);
 
-  const setRating = (key: string, val: number) => setRatings(r => ({ ...r, [key]: val }));
-  const toggleTag = (tag: string) => setTags(t => t.includes(tag) ? t.filter(x => x !== tag) : [...t, tag]);
-  const avgRating = Object.values(ratings).length ? (Object.values(ratings).reduce((a, b) => a + b, 0) / Object.values(ratings).length).toFixed(1) : "—";
+  // Redirect if accessed without booking context
+  useEffect(() => {
+    if (!state?.bookingId) {
+      navigate("/student/history");
+    }
+  }, []);
 
-  const handleSubmit = () => {
-    setSubmitted(true);
-    setTimeout(() => navigate("/student/history"), 2500);
+  if (!state?.bookingId) {
+    return null;
+  }
+
+  const setRating = (key: string, val: number) => {
+    setRatings(r => ({ ...r, [key]: val }));
+    // Clear field error when user interacts
+    if (key === "overall") setFieldErrors(e => { const n = { ...e }; delete n.overall; return n; });
+  };
+  const toggleTag = (tag: string) => setTags(t => t.includes(tag) ? t.filter(x => x !== tag) : [...t, tag]);
+
+  const validateForm = (): boolean => {
+    const errs: Record<string, string> = {};
+
+    // Required: overall star rating
+    if (!ratings.overall) {
+      errs.overall = "Overall Experience rating is required.";
+    }
+
+    // Optional written review: if provided, minimum 10 chars
+    if (review.trim().length > 0 && review.trim().length < 10) {
+      errs.review = "Written review must be at least 10 characters if provided.";
+    }
+    // Maximum enforced by both textarea maxLength and backend
+    if (review.length > 1000) {
+      errs.review = "Written review must not exceed 1000 characters.";
+    }
+
+    setFieldErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
+  const avgRating = Object.values(ratings).length
+    ? (Object.values(ratings).reduce((a, b) => a + b, 0) / Object.values(ratings).length).toFixed(1)
+    : "—";
+
+  const handleSubmit = async () => {
+    if (!validateForm()) {
+      setError("Please fix the errors below before submitting.");
+      return;
+    }
+    setError("");
+    setSubmitting(true);
+    try {
+      const feedbackParts: string[] = [];
+      if (review.trim()) feedbackParts.push(review.trim());
+      if (tags.length > 0) feedbackParts.push(`Tags: ${tags.join(", ")}`);
+      if (wouldRecommend !== null) feedbackParts.push(wouldRecommend ? "Would recommend." : "Would not recommend.");
+
+      const body = {
+        BookingId: state.bookingId,
+        TutorProfileId: state.tutorProfileId,
+        TutorId: state.tutorId,
+        StudentId: user?.userId,
+        Stars: ratings.overall,
+        Feedback: feedbackParts.join(" | ") || null,
+      };
+
+      const res = await submitRating(body);
+      if (res?.StatusCode === 1) {
+        setSubmitted(true);
+        setTimeout(() => navigate("/student/history"), 2500);
+      } else {
+        setError(res?.Message || "Failed to submit review. Please try again.");
+      }
+    } catch (e: any) {
+      setError(e?.message || "Failed to submit review. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (submitted) {
@@ -42,9 +134,13 @@ export default function SessionReview() {
           <Check className="w-10 h-10 text-emerald-500" />
         </div>
         <h2 className="text-xl font-bold text-slate-900 mb-2">Review Submitted!</h2>
-        <p className="text-slate-500 text-center">Thank you for your feedback. It helps other students find great tutors.</p>
+        <p className="text-slate-500 text-center">
+          Thank you for your feedback on your session with {state.tutorName}. It will be visible after admin approval.
+        </p>
         <div className="flex gap-1 mt-4">
-          {Array.from({ length: 5 }).map((_, i) => <Star key={i} className={`w-6 h-6 ${i < Math.round(Number(avgRating)) ? "fill-amber-400 text-amber-400" : "text-slate-200"}`} />)}
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Star key={i} className={`w-6 h-6 ${i < Math.round(Number(avgRating)) ? "fill-amber-400 text-amber-400" : "text-slate-200"}`} />
+          ))}
         </div>
       </div>
     );
@@ -59,17 +155,21 @@ export default function SessionReview() {
 
       {/* Tutor Card */}
       <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm mb-5 flex items-center gap-4">
-        <img src={tutor.avatar} alt={tutor.name} className="w-14 h-14 rounded-2xl object-cover" />
+        <div className="w-14 h-14 rounded-2xl bg-violet-100 flex items-center justify-center text-violet-700 font-bold text-xl flex-shrink-0">
+          {state.tutorName?.charAt(0)?.toUpperCase() ?? "T"}
+        </div>
         <div className="flex-1">
-          <h3 className="font-semibold text-slate-900">{tutor.name}</h3>
-          <p className="text-sm text-slate-500">Calculus Session</p>
-          <p className="text-xs text-slate-400 mt-0.5">Mar 3, 2026 · 60 min · 1-on-1 Video</p>
+          <h3 className="font-semibold text-slate-900">{state.tutorName}</h3>
+          <p className="text-sm text-slate-500">{state.subject}</p>
+          <p className="text-xs text-slate-400 mt-0.5">{toSlstDateStr(state.sessionDate)}</p>
         </div>
         {Object.values(ratings).length > 0 && (
           <div className="text-center">
             <p className="text-2xl font-bold text-amber-500">{avgRating}</p>
             <div className="flex gap-0.5 mt-1">
-              {Array.from({ length: 5 }).map((_, i) => <Star key={i} className={`w-3 h-3 ${i < Math.round(Number(avgRating)) ? "fill-amber-400 text-amber-400" : "text-slate-200"}`} />)}
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Star key={i} className={`w-3 h-3 ${i < Math.round(Number(avgRating)) ? "fill-amber-400 text-amber-400" : "text-slate-200"}`} />
+              ))}
             </div>
           </div>
         )}
@@ -80,21 +180,31 @@ export default function SessionReview() {
         <h3 className="font-semibold text-slate-800 mb-4">Rate Your Experience</h3>
         <div className="space-y-4">
           {criteria.map(({ key, label }) => (
-            <div key={key} className="flex items-center justify-between">
-              <span className="text-sm text-slate-700">{label}</span>
-              <div className="flex gap-1">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <button
-                    key={i}
-                    onMouseEnter={() => setHover(h => ({ ...h, [key]: i + 1 }))}
-                    onMouseLeave={() => setHover(h => { const copy = { ...h }; delete copy[key]; return copy; })}
-                    onClick={() => setRating(key, i + 1)}
-                    className="transition-transform hover:scale-110"
-                  >
-                    <Star className={`w-6 h-6 transition-colors ${i < (hover[key] || ratings[key] || 0) ? "fill-amber-400 text-amber-400" : "text-slate-200 hover:text-amber-300"}`} />
-                  </button>
-                ))}
+            <div key={key}>
+              <div className="flex items-center justify-between">
+                <span className={`text-sm ${fieldErrors.overall && key === "overall" ? "text-rose-600 font-medium" : "text-slate-700"}`}>
+                  {label}
+                  {key === "overall" && <span className="text-rose-500 ml-1">*</span>}
+                </span>
+                <div className="flex gap-1">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <button
+                      key={i}
+                      onMouseEnter={() => setHover(h => ({ ...h, [key]: i + 1 }))}
+                      onMouseLeave={() => setHover(h => { const copy = { ...h }; delete copy[key]; return copy; })}
+                      onClick={() => setRating(key, i + 1)}
+                      className="transition-transform hover:scale-110"
+                    >
+                      <Star className={`w-6 h-6 transition-colors ${i < (hover[key] || ratings[key] || 0) ? "fill-amber-400 text-amber-400" : "text-slate-200 hover:text-amber-300"}`} />
+                    </button>
+                  ))}
+                </div>
               </div>
+              {key === "overall" && fieldErrors.overall && (
+                <p className="text-xs text-rose-600 flex items-center gap-1 mt-1">
+                  <AlertCircle className="w-3 h-3 flex-shrink-0" /> {fieldErrors.overall}
+                </p>
+              )}
             </div>
           ))}
         </div>
@@ -102,7 +212,7 @@ export default function SessionReview() {
 
       {/* Recommendation */}
       <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm mb-5">
-        <h3 className="font-semibold text-slate-800 mb-3">Would you recommend {tutor.name}?</h3>
+        <h3 className="font-semibold text-slate-800 mb-3">Would you recommend {state.tutorName}?</h3>
         <div className="flex gap-3">
           {[{ val: true, label: "Yes, definitely!", color: "emerald" }, { val: false, label: "Not really", color: "rose" }].map(({ val, label, color }) => (
             <button key={label} onClick={() => setWouldRecommend(val)}
@@ -128,28 +238,54 @@ export default function SessionReview() {
 
       {/* Written Review */}
       <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm mb-5">
-        <h3 className="font-semibold text-slate-800 mb-3 flex items-center gap-2"><MessageSquare className="w-4 h-4 text-violet-600" /> Written Review</h3>
+        <h3 className="font-semibold text-slate-800 mb-3 flex items-center gap-2"><MessageSquare className="w-4 h-4 text-violet-600" /> Written Review <span className="text-slate-400 font-normal text-sm">(optional)</span></h3>
         <textarea
           value={review}
-          onChange={e => setReview(e.target.value)}
+          onChange={e => {
+            setReview(e.target.value);
+            // Clear review error as user types
+            if (fieldErrors.review) setFieldErrors(prev => { const n = { ...prev }; delete n.review; return n; });
+          }}
           placeholder="Share your experience in detail... What did you learn? How did the tutor help you?"
           rows={4}
-          className="w-full px-4 py-3 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 resize-none"
+          maxLength={1000}
+          className={`w-full px-4 py-3 text-sm border rounded-xl focus:outline-none focus:ring-2 resize-none transition-colors ${
+            fieldErrors.review
+              ? "border-rose-300 focus:ring-rose-500/20 focus:border-rose-400 bg-rose-50"
+              : "border-slate-200 focus:ring-violet-500/20 focus:border-violet-400"
+          }`}
         />
         <div className="flex items-center justify-between mt-2">
-          <p className="text-xs text-slate-400">{review.length} characters</p>
-          <p className="text-xs text-slate-400">Minimum 50 characters recommended</p>
+          <div>
+            {fieldErrors.review ? (
+              <p className="text-xs text-rose-600 flex items-center gap-1">
+                <AlertCircle className="w-3 h-3 flex-shrink-0" /> {fieldErrors.review}
+              </p>
+            ) : (
+              <p className="text-xs text-slate-400">{review.length}/1000 characters</p>
+            )}
+          </div>
+          <p className={`text-xs ${review.trim().length > 0 && review.trim().length < 10 ? "text-amber-500 font-medium" : "text-slate-400"}`}>
+            {review.trim().length < 10 && review.trim().length > 0 ? `${10 - review.trim().length} more characters needed` : "Minimum 10 characters recommended"}
+          </p>
         </div>
       </div>
 
+      {/* Error Banner */}
+      {error && (
+        <div className="mb-4 flex items-center gap-2 p-3 bg-rose-50 border border-rose-200 rounded-xl text-sm text-rose-700">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" /> {error}
+        </div>
+      )}
+
       <button
         onClick={handleSubmit}
-        disabled={Object.keys(ratings).length === 0}
+        disabled={!ratings.overall || submitting}
         className="w-full flex items-center justify-center gap-2 py-3.5 bg-violet-600 text-white rounded-xl font-medium hover:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-md shadow-violet-200"
       >
-        <Send className="w-4 h-4" /> Submit Review
+        <Send className="w-4 h-4" /> {submitting ? "Submitting..." : "Submit Review"}
       </button>
-      <p className="text-xs text-center text-slate-400 mt-2">Your review will be posted publicly on the tutor's profile</p>
+      <p className="text-xs text-center text-slate-400 mt-2">Your review will be visible after admin approval</p>
     </div>
   );
 }

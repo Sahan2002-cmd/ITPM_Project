@@ -1,69 +1,89 @@
-import { useState } from "react";
+﻿import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router";
-import { Calendar, Clock, ChevronLeft, ChevronRight, Star, Users, User, Check, Plus, Trash2, AlertCircle } from "lucide-react";
-import { tutors } from "../data/mockData";
+import { Calendar, Clock, ChevronLeft, ChevronRight, Users, User, Check, Plus, Trash2, AlertCircle, Loader2, BadgeCheck } from "lucide-react";
+import { getTutorProfileById, getAvailabilityByTutor } from "../services/Module_01_API";
+import { createBooking } from "../services/Module_02_API";
+import { useAuth } from "../contexts/AuthContext";
+
+interface TutorProfile {
+  Id: string;
+  UserId: number;
+  FullName: string;
+  SubjectsTaught: string[];
+  HourlyRate: number;
+  Bio: string;
+  YearsOfExperience: number;
+  IsVerified: boolean;
+}
+
+interface AvailabilitySlot {
+  Id: string;
+  TutorProfileId: string;
+  Date: string;
+  StartTime: string;
+  EndTime: string;
+  Status: string;
+}
+
+/** Convert a UTC datetime string to SLST (UTC+5:30) "HH:MM AM/PM" */
+function toSlstTime(utcStr: string): string {
+  return new Date(utcStr).toLocaleTimeString("en-US", {
+    hour: "2-digit", minute: "2-digit", hour12: true,
+    timeZone: "Asia/Colombo",
+  });
+}
+
+/** Return SLST date as "YYYY-MM-DD" from a UTC datetime string */
+function toSlstDateKey(utcStr: string): string {
+  return new Date(utcStr).toLocaleDateString("en-CA", { timeZone: "Asia/Colombo" });
+}
 
 const INDIVIDUAL_PRICE = 2000;
 const GROUP_PRICE = 3500;
-
-// Student ID format: "ST" followed by 6 digits, e.g. ST123456
 const STUDENT_ID_REGEX = /^ST\d{6}$/i;
-
 const getDaysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
 const getFirstDayOfMonth = (year: number, month: number) => new Date(year, month, 1).getDay();
-
-const times = [
-  "9:00 AM", "10:00 AM", "11:00 AM", "12:00 PM",
-  "1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM",
-  "5:00 PM", "6:00 PM",
-];
-
-// Mock booked/pending slots so the UI shows real disabled states
-const bookedSlots: Record<string, string[]> = {
-  "2026-4-10": ["10:00 AM", "2:00 PM"],
-  "2026-4-11": ["9:00 AM"],
-};
-const pendingSlots: Record<string, string[]> = {
-  "2026-4-10": ["3:00 PM"],
-  "2026-4-12": ["11:00 AM"],
-};
-
-type SlotStatus = "available" | "booked" | "pending" | "past";
-
-function getSlotStatus(year: number, month: number, day: number, time: string, now: Date): SlotStatus {
-  const slotDate = new Date(year, month, day);
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  if (slotDate < today) return "past";
-  const key = `${year}-${month + 1}-${day}`;
-  if (bookedSlots[key]?.includes(time)) return "booked";
-  if (pendingSlots[key]?.includes(time)) return "pending";
-  return "available";
-}
 
 type GroupMember = { id: string; name: string; studentId: string };
 type FieldErrors = Record<string, string>;
 
 export default function BookingForm() {
-  const { tutorId } = useParams();
+  const { tutorId } = useParams<{ tutorId: string }>();
   const navigate = useNavigate();
-  const tutor = tutors.find((t) => t.id === tutorId) || tutors[0];
+  const { user } = useAuth();
+
+  const [tutor, setTutor] = useState<TutorProfile | null>(null);
+  const [slots, setSlots] = useState<AvailabilitySlot[]>([]);
+  const [loadingTutor, setLoadingTutor] = useState(true);
+  const [loadingSlots, setLoadingSlots] = useState(true);
+  const [submitLoading, setSubmitLoading] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const today = new Date();
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
   const [currentMonth, setCurrentMonth] = useState(today.getMonth());
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
-  const [selectedTime, setSelectedTime] = useState<string | null>(null);
+  const [selectedSlot, setSelectedSlot] = useState<AvailabilitySlot | null>(null);
   const [sessionType, setSessionType] = useState<"individual" | "group">("individual");
   const [notes, setNotes] = useState("");
-  const [groupMembers, setGroupMembers] = useState<GroupMember[]>([
-    { id: "member-1", name: "", studentId: "" },
-  ]);
+  const [groupMembers, setGroupMembers] = useState<GroupMember[]>([{ id: "member-1", name: "", studentId: "" }]);
   const [errors, setErrors] = useState<FieldErrors>({});
+
+  useEffect(() => {
+    if (!tutorId) return;
+    getTutorProfileById(tutorId)
+      .then((res: any) => setTutor(res.Data ?? res ?? null))
+      .catch(() => {})
+      .finally(() => setLoadingTutor(false));
+    getAvailabilityByTutor(tutorId)
+      .then((res: any) => setSlots((res.Data ?? res ?? []).filter((s: AvailabilitySlot) => s.Status === "Free")))
+      .catch(() => {})
+      .finally(() => setLoadingSlots(false));
+  }, [tutorId]);
 
   const monthName = new Date(currentYear, currentMonth).toLocaleString("default", { month: "long" });
   const daysInMonth = getDaysInMonth(currentYear, currentMonth);
   const firstDay = getFirstDayOfMonth(currentYear, currentMonth);
-  const price = sessionType === "individual" ? INDIVIDUAL_PRICE : GROUP_PRICE;
 
   const prevMonth = () => {
     if (currentMonth === 0) { setCurrentMonth(11); setCurrentYear(y => y - 1); }
@@ -74,83 +94,111 @@ export default function BookingForm() {
     else setCurrentMonth(m => m + 1);
   };
 
-  const step = !selectedDay ? 1 : !selectedTime ? 2 : 3;
+  const calDayKey = (day: number) =>
+    `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 
-  // ── Group member helpers ──────────────────────────────────────────────────
+  const daysWithFreeSlots = new Set(slots.map(s => toSlstDateKey(s.Date)));
+
+  const slotsForDay = selectedDay
+    ? slots.filter(s => toSlstDateKey(s.Date) === calDayKey(selectedDay))
+    : [];
+
+  const step = !selectedDay ? 1 : !selectedSlot ? 2 : 3;
+  const price = sessionType === "individual" ? INDIVIDUAL_PRICE : GROUP_PRICE;
+
   const addMember = () => {
     if (groupMembers.length >= 10) return;
     setGroupMembers(m => [...m, { id: `member-${Date.now()}`, name: "", studentId: "" }]);
   };
-
-  const removeMember = (id: string) => {
-    setGroupMembers(m => m.filter(mem => mem.id !== id));
-  };
-
+  const removeMember = (id: string) => setGroupMembers(m => m.filter(mem => mem.id !== id));
   const updateMember = (id: string, field: "name" | "studentId", value: string) => {
     setGroupMembers(m => m.map(mem => mem.id === id ? { ...mem, [field]: value } : mem));
     setErrors(e => { const next = { ...e }; delete next[`${id}-${field}`]; return next; });
   };
 
-  // ── Validation ────────────────────────────────────────────────────────────
   const validate = (): boolean => {
     const errs: FieldErrors = {};
-
-    if (!selectedTime) errs.time = "Please select a time slot.";
-    if (!sessionType) errs.sessionType = "Please select a session type.";
+    if (!selectedSlot) errs.time = "Please select a time slot.";
     if (notes.length > 500) errs.notes = "Notes must be 500 characters or fewer.";
-
     if (sessionType === "group") {
-      if (groupMembers.length < 1) {
-        errs.groupGeneral = "At least one group member is required.";
-      }
+      if (groupMembers.length < 1) errs.groupGeneral = "At least one group member is required.";
       const seenIds = new Set<string>();
       groupMembers.forEach(mem => {
         const nameKey = `${mem.id}-name`;
         const idKey = `${mem.id}-studentId`;
-        if (!mem.name.trim()) {
-          errs[nameKey] = "Member name is required.";
-        } else if (mem.name.trim().length < 2 || mem.name.trim().length > 50) {
-          errs[nameKey] = "Name must be 2–50 characters.";
-        }
-        if (!mem.studentId.trim()) {
-          errs[idKey] = "Student ID is required.";
-        } else if (!STUDENT_ID_REGEX.test(mem.studentId.trim())) {
-          errs[idKey] = "Student ID must follow format ST123456.";
-        } else if (seenIds.has(mem.studentId.trim().toUpperCase())) {
-          errs[idKey] = "Duplicate Student ID.";
-        } else {
-          seenIds.add(mem.studentId.trim().toUpperCase());
-        }
+        if (!mem.name.trim()) errs[nameKey] = "Member name is required.";
+        else if (mem.name.trim().length < 2 || mem.name.trim().length > 50) errs[nameKey] = "Name must be 2â€“50 characters.";
+        if (!mem.studentId.trim()) errs[idKey] = "Student ID is required.";
+        else if (!STUDENT_ID_REGEX.test(mem.studentId.trim())) errs[idKey] = "Student ID must follow format ST123456.";
+        else if (seenIds.has(mem.studentId.trim().toUpperCase())) errs[idKey] = "Duplicate Student ID.";
+        else seenIds.add(mem.studentId.trim().toUpperCase());
       });
     }
-
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
 
-  const handleConfirm = () => {
-    if (!validate()) return;
-    navigate("/student/booking-confirmation");
+  const handleConfirm = async () => {
+    if (!validate() || !tutor || !selectedSlot || !user?.userId) return;
+    setSubmitLoading(true);
+    setSubmitError(null);
+    try {
+      const res = await createBooking({
+        AvailabilityId: selectedSlot.Id,
+        TutorProfileId: tutor.Id,
+        TutorId: tutor.UserId,
+        StudentId: user.userId,
+      });
+      const slstDate = new Date(new Date(selectedSlot.Date).getTime() + 5.5 * 60 * 60 * 1000)
+        .toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+      const durationMinutes = Math.round(
+        (new Date(selectedSlot.EndTime).getTime() - new Date(selectedSlot.StartTime).getTime()) / 60000
+      );
+      navigate("/student/booking-confirmation", {
+        state: {
+          bookingId: res?.Data?.BookingId ?? null,
+          tutorName: tutor.FullName,
+          subjects: tutor.SubjectsTaught ?? [],
+          sessionDate: slstDate,
+          startTime: toSlstTime(selectedSlot.StartTime),
+          endTime: toSlstTime(selectedSlot.EndTime),
+          sessionType,
+          price,
+          durationMinutes,
+        },
+      });
+    } catch (err: any) {
+      setSubmitError(err.message || "Booking failed. Please try again.");
+    } finally {
+      setSubmitLoading(false);
+    }
   };
 
-  const slotStatusForDay = (time: string): SlotStatus => {
-    if (!selectedDay) return "available";
-    return getSlotStatus(currentYear, currentMonth, selectedDay, time, today);
-  };
+  if (loadingTutor) {
+    return (
+      <div className="flex items-center justify-center py-32">
+        <Loader2 className="w-8 h-8 animate-spin text-violet-600" />
+      </div>
+    );
+  }
+
+  if (!tutor) {
+    return <div className="p-6 max-w-5xl mx-auto text-center py-20 text-rose-600">Tutor not found.</div>;
+  }
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
-      <button onClick={() => navigate(-1)} className="flex items-center gap-1 text-sm text-slate-500 hover:text-slateate-800 mb-4 transition-colors">
+      <button onClick={() => navigate(-1)} className="flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800 mb-4 transition-colors">
         <ChevronLeft className="w-4 h-4" /> Back to Browse
       </button>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* ── Left: Booking Form ─────────────────────────────────── */}
+        {/* â”€â”€ Left: Booking Form â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <div className="lg:col-span-2 space-y-5">
 
           {/* Step indicator */}
           <div className="flex items-center gap-2">
-            {["Select Date", "Choose Time", "Confirm Details"].map((label, i) => (
+            {["Select Date", "Choose Slot", "Confirm Details"].map((label, i) => (
               <div key={i} className="flex items-center gap-2 flex-1">
                 <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0 ${step > i + 1 ? "bg-emerald-500 text-white" : step === i + 1 ? "bg-violet-600 text-white" : "bg-slate-100 text-slate-400"}`}>
                   {step > i + 1 ? <Check className="w-3.5 h-3.5" /> : i + 1}
@@ -181,19 +229,36 @@ export default function BookingForm() {
               {Array.from({ length: daysInMonth }).map((_, i) => {
                 const day = i + 1;
                 const isPast = new Date(currentYear, currentMonth, day) < new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                const hasSlots = daysWithFreeSlots.has(calDayKey(day));
                 const isSelected = selectedDay === day;
                 return (
                   <button
                     key={day}
-                    disabled={isPast}
-                    onClick={() => { setSelectedDay(day); setSelectedTime(null); }}
-                    className={`aspect-square rounded-xl text-sm font-medium transition-all ${isSelected ? "bg-violet-600 text-white shadow-md shadow-violet-200" : isPast ? "text-slate-300 cursor-not-allowed" : "hover:bg-violet-50 text-slate-700 hover:text-violet-700"}`}
+                    disabled={isPast || (!loadingSlots && !hasSlots)}
+                    onClick={() => { setSelectedDay(day); setSelectedSlot(null); }}
+                    className={`aspect-square rounded-xl text-sm font-medium transition-all relative ${
+                      isSelected ? "bg-violet-600 text-white shadow-md shadow-violet-200"
+                      : isPast ? "text-slate-300 cursor-not-allowed"
+                      : hasSlots ? "hover:bg-violet-50 text-slate-700 hover:text-violet-700 ring-1 ring-violet-200"
+                      : "text-slate-300 cursor-not-allowed"
+                    }`}
                   >
                     {day}
+                    {!isPast && hasSlots && !isSelected && (
+                      <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-violet-500 rounded-full" />
+                    )}
                   </button>
                 );
               })}
             </div>
+            {loadingSlots && (
+              <p className="text-xs text-slate-400 text-center mt-3 flex items-center justify-center gap-1.5">
+                <Loader2 className="w-3 h-3 animate-spin" /> Loading availability...
+              </p>
+            )}
+            {!loadingSlots && slots.length === 0 && (
+              <p className="text-xs text-slate-400 text-center mt-3">No available slots for this tutor.</p>
+            )}
           </div>
 
           {/* Time Slots */}
@@ -203,50 +268,41 @@ export default function BookingForm() {
               {errors.time && (
                 <p className="text-xs text-rose-600 flex items-center gap-1 mb-3"><AlertCircle className="w-3.5 h-3.5" />{errors.time}</p>
               )}
-              <div className="flex items-center gap-4 mb-4 text-xs text-slate-500">
-                <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-violet-600 inline-block" /> Available</span>
-                <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-amber-400 inline-block" /> Pending</span>
-                <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-slate-300 inline-block" /> Booked</span>
-              </div>
-              <div className="grid grid-cols-5 gap-2">
-                {times.map(t => {
-                  const status = slotStatusForDay(t);
-                  const isSelected = selectedTime === t;
-                  const isDisabled = status === "booked" || status === "pending" || status === "past";
-                  return (
-                    <button
-                      key={t}
-                      disabled={isDisabled}
-                      onClick={() => { setSelectedTime(t); setErrors(e => { const n = { ...e }; delete n.time; return n; }); }}
-                      title={status === "booked" ? "Already booked" : status === "pending" ? "Pending approval — unavailable" : undefined}
-                      className={`py-2.5 rounded-xl text-sm font-medium transition-all relative ${
-                        isSelected ? "bg-violet-600 text-white shadow-md"
-                        : status === "booked" ? "bg-slate-100 text-slate-400 cursor-not-allowed line-through"
-                        : status === "pending" ? "bg-amber-50 text-amber-600 border border-amber-300 cursor-not-allowed"
-                        : "bg-slate-50 hover:bg-violet-50 text-slate-700 hover:text-violet-700 border border-slate-200"
-                      }`}
-                    >
-                      {t}
-                      {status === "booked" && <span className="absolute -top-1.5 -right-1.5 text-[9px] bg-slate-400 text-white rounded-full px-1 leading-4">Full</span>}
-                      {status === "pending" && <span className="absolute -top-1.5 -right-1.5 text-[9px] bg-amber-400 text-white rounded-full px-1 leading-4">Pending</span>}
-                    </button>
-                  );
-                })}
-              </div>
+              {slotsForDay.length === 0 ? (
+                <p className="text-sm text-slate-400 py-4 text-center">No available slots on this date. Please choose another day.</p>
+              ) : (
+                <div className="grid grid-cols-3 gap-2">
+                  {slotsForDay.map(slot => {
+                    const isSelected = selectedSlot?.Id === slot.Id;
+                    return (
+                      <button
+                        key={slot.Id}
+                        onClick={() => { setSelectedSlot(slot); setErrors(e => { const n = { ...e }; delete n.time; return n; }); }}
+                        className={`py-3 px-2 rounded-xl text-xs font-medium transition-all border ${
+                          isSelected
+                            ? "bg-violet-600 text-white border-violet-600 shadow-md"
+                            : "bg-slate-50 hover:bg-violet-50 text-slate-700 hover:text-violet-700 border-slate-200"
+                        }`}
+                      >
+                        <div>{toSlstTime(slot.StartTime)}</div>
+                        <div className="text-[10px] opacity-70">â†’ {toSlstTime(slot.EndTime)}</div>
+                        <div className="text-[10px] opacity-60 mt-0.5">SLST</div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 
           {/* Session Details */}
-          {selectedTime && (
+          {selectedSlot && (
             <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-5">
               <h2 className="font-semibold text-slate-800">Session Details</h2>
 
               {/* Session Type */}
               <div>
                 <label className="text-sm font-medium text-slate-700 block mb-2">Session Type <span className="text-rose-500">*</span></label>
-                {errors.sessionType && (
-                  <p className="text-xs text-rose-600 flex items-center gap-1 mb-2"><AlertCircle className="w-3.5 h-3.5" />{errors.sessionType}</p>
-                )}
                 <div className="flex gap-3">
                   {[
                     { id: "individual" as const, icon: User, label: "Individual", price: INDIVIDUAL_PRICE },
@@ -254,10 +310,7 @@ export default function BookingForm() {
                   ].map(({ id, icon: Icon, label, price: p }) => (
                     <button
                       key={id}
-                      onClick={() => {
-                        setSessionType(id);
-                        setErrors(e => { const n = { ...e }; delete n.sessionType; return n; });
-                      }}
+                      onClick={() => setSessionType(id)}
                       className={`flex-1 flex flex-col items-center justify-center gap-1.5 py-4 rounded-xl text-sm font-medium transition-all border ${sessionType === id ? "border-violet-500 bg-violet-50 text-violet-700" : "border-slate-200 text-slate-600 hover:border-violet-300"}`}
                     >
                       <Icon className="w-5 h-5" />
@@ -346,30 +399,38 @@ export default function BookingForm() {
           )}
         </div>
 
-        {/* ── Right: Summary ────────────────────────────────────── */}
+        {/* â”€â”€ Right: Summary â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <div className="space-y-5">
+          {/* Tutor Card */}
           <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
-            <img src={tutor.avatar} alt={tutor.name} className="w-full h-36 object-cover rounded-xl mb-4" />
-            <h3 className="font-semibold text-slate-900">{tutor.name}</h3>
-            <div className="flex items-center gap-1 mt-1">
-              <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-              <span className="text-sm text-slate-600">{tutor.rating} ({tutor.reviews} reviews)</span>
+            <div className="w-full h-20 bg-violet-100 rounded-xl flex items-center justify-center mb-4 text-4xl font-bold text-violet-700">
+              {tutor.FullName.charAt(0).toUpperCase()}
             </div>
+            <div className="flex items-center gap-1.5">
+              <h3 className="font-semibold text-slate-900">{tutor.FullName}</h3>
+              {tutor.IsVerified && <BadgeCheck className="w-4 h-4 text-violet-500" />}
+            </div>
+            <p className="text-xs text-slate-500 mt-1">{tutor.YearsOfExperience} yr{tutor.YearsOfExperience !== 1 ? "s" : ""} experience</p>
             <div className="flex gap-1.5 flex-wrap mt-3">
-              {tutor.subjects.map(s => <span key={s} className="px-2 py-1 bg-violet-50 text-violet-700 rounded-lg text-xs">{s}</span>)}
+              {(tutor.SubjectsTaught ?? []).map(s => <span key={s} className="px-2 py-1 bg-violet-50 text-violet-700 rounded-lg text-xs">{s}</span>)}
             </div>
           </div>
 
+          {/* Booking Summary */}
           <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
             <h3 className="font-semibold text-slate-800 mb-4">Booking Summary</h3>
             <div className="space-y-3 text-sm">
               <div className="flex justify-between">
                 <span className="text-slate-500">Date</span>
-                <span className="font-medium text-slate-800">{selectedDay ? `${monthName} ${selectedDay}, ${currentYear}` : "—"}</span>
+                <span className="font-medium text-slate-800">
+                  {selectedDay ? `${monthName} ${selectedDay}, ${currentYear}` : "â€”"}
+                </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">Time</span>
-                <span className="font-medium text-slate-800">{selectedTime || "—"}</span>
+                <span className="text-slate-500">Time (SLST)</span>
+                <span className="font-medium text-slate-800">
+                  {selectedSlot ? `${toSlstTime(selectedSlot.StartTime)} â€“ ${toSlstTime(selectedSlot.EndTime)}` : "â€”"}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Session Type</span>
@@ -386,29 +447,32 @@ export default function BookingForm() {
                   <span>Base fee ({sessionType})</span>
                   <span>Rs. {price.toLocaleString()}</span>
                 </div>
-                {sessionType === "group" && (
-                  <div className="flex justify-between text-xs text-emerald-600">
-                    <span>Group surcharge</span>
-                    <span>+ Rs. {(GROUP_PRICE - INDIVIDUAL_PRICE).toLocaleString()}</span>
-                  </div>
-                )}
                 <div className="flex justify-between pt-1 border-t border-slate-100">
-                  <span className="font-semibold text-slate-800">{sessionType === "group" ? "Group Session Fee" : "Session Fee"}</span>
+                  <span className="font-semibold text-slate-800">Session Fee</span>
                   <span className="font-bold text-violet-600 text-base">Rs. {price.toLocaleString()}</span>
                 </div>
               </div>
             </div>
+
+            {submitError && (
+              <p className="mt-3 text-xs text-rose-600 flex items-center gap-1">
+                <AlertCircle className="w-3.5 h-3.5" /> {submitError}
+              </p>
+            )}
+
             <button
               onClick={handleConfirm}
-              disabled={!selectedDay || !selectedTime}
-              className="w-full mt-5 py-3 bg-violet-600 text-white rounded-xl font-medium text-sm hover:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-md shadow-violet-200"
+              disabled={!selectedDay || !selectedSlot || submitLoading}
+              className="w-full mt-5 py-3 bg-violet-600 text-white rounded-xl font-medium text-sm hover:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-md shadow-violet-200 flex items-center justify-center gap-2"
             >
-              Confirm Booking
+              {submitLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Booking...</> : "Confirm Booking"}
             </button>
-            <p className="text-xs text-center text-slate-400 mt-2">Free cancellation up to 24 hours before</p>
+            <p className="text-xs text-center text-slate-400 mt-2">Free cancellation up to 2 hours before</p>
           </div>
         </div>
       </div>
     </div>
   );
 }
+
+

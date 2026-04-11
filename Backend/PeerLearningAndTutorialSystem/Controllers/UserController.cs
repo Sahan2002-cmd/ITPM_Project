@@ -3,7 +3,6 @@ using PeerLearningAndTutorialSystem.BusinessLayer;
 using PeerLearningAndTutorialSystem.DataAccess;
 using PeerLearningAndTutorialSystem.Models;
 using PeerLearningAndTutorialSystem.Models.RequestApiModels;
-using PeerLearningAndTutorialSystem.DatabaseConnectivity;
 using System;
 using System.Linq;
 using System.Net;
@@ -17,7 +16,6 @@ using HttpPutAttribute = System.Web.Http.HttpPutAttribute;
 using HttpDeleteAttribute = System.Web.Http.HttpDeleteAttribute;
 using RouteAttribute = System.Web.Http.RouteAttribute;
 using AllowAnonymousAttribute = System.Web.Http.AllowAnonymousAttribute;
-using MongoDB.Driver;
 
 namespace PeerLearningAndTutorialSystem.Controllers
 {
@@ -281,93 +279,6 @@ namespace PeerLearningAndTutorialSystem.Controllers
         {
             string hash = BCrypt.Net.BCrypt.HashPassword("Admin@1234", workFactor: 12);
             return Ok(hash);
-        }
-
-        // ════════════════════════════════════════════════════════════════
-        //  POST  /api/user/upload-profile-image
-        // ════════════════════════════════════════════════════════════════
-        [HttpPost]
-        [Route("upload-profile-image")]
-        public IHttpActionResult UploadProfileImage([FromBody] ProfileImageRequest request)
-        {
-            int userId = GetCallerUserId();
-            if (userId == 0)
-                return Content(HttpStatusCode.Unauthorized, Response.Fail("Unauthorized. Please log in."));
-
-            if (request == null || string.IsNullOrWhiteSpace(request.ImageBase64))
-                return BadRequest("Image data is required.");
-
-            return Ok(_da.UpdateProfileImage(userId, request.ImageBase64));
-        }
-
-        [HttpGet]
-        [Route("test-mongo")]
-        [AllowAnonymous]
-        public IHttpActionResult TestMongo()
-        {
-            try
-            {
-                var ctx = new MongoDBContext();
-                var db = ctx.GetDatabase();
-                var collections = db.ListCollectionNames().ToList();
-                return Ok(new { success = true, collections });
-            }
-            catch (Exception ex)
-            {
-                return Ok(new { success = false, error = ex.Message });
-            }
-        }
-
-        // POST /api/user/verify-edit-otp
-        [HttpPost]
-        [Route("verify-edit-otp")]
-        public IHttpActionResult VerifyEditOtp([FromBody] VerifyOtpRequest request)
-        {
-            int userId = GetCallerUserId();
-            if (userId == 0)
-                return Content(HttpStatusCode.Unauthorized, Response.Fail("Unauthorized"));
-
-            if (string.IsNullOrWhiteSpace(request?.OtpCode))
-                return BadRequest("OTP code is required.");
-
-            return Ok(_da.VerifyEditOtp(userId, request.OtpCode));
-        }
-
-        [HttpPut]
-        [Route("admin-edit")]
-        public IHttpActionResult AdminEditUser([FromBody] UserRequestApi request)
-        {
-            int adminId = GetCallerUserId();
-            string role = GetCallerRole();
-            if (role != "Admin")
-                return Content(HttpStatusCode.Forbidden, Response.Fail("Admin only."));
-            // No OTP required for admin edits
-            return Ok(_da.AdminEditUser(request, adminId));
-        }
-
-        // Simple request model (you can add inside the controller file or in Models folder)
-        public class VerifyOtpRequest
-        {
-            public string OtpCode { get; set; }
-        }
-
-        [HttpGet]
-        [Route("basic/{id:int}")]
-        public IHttpActionResult GetBasicUserInfo(int id)
-        {
-            int callerId = GetCallerUserId();
-            if (callerId == 0) return Unauthorized();
-            var result = _da.GetUserById(id);
-            if (result.StatusCode != 1) return NotFound();
-            var user = result.Data as UserModel;
-            return Ok(new
-            {
-                userId = user.UserId,
-                fullName = user.FullName,
-                email = user.Email,
-                roleName = user.RoleName,
-                profileImage = user.ProfileImage
-            });
         }
     }
 }

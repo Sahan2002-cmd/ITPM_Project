@@ -1,6 +1,0 @@
-node_modules
-.env
-uploads
-src/uploads/recordings/*
-!src/uploads/recordings/.gitkeep
-npm-debug.log*
