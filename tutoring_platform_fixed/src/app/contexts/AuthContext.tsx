@@ -1,16 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { loginAction, registerAction, logoutAction } from '../actions/UserAction';
-import { toast } from 'sonner';
-
-// Define the exact shape of the user object returned by loginAction
-interface LoginUser {
-  userId: number;
-  fullName: string;
-  email: string;
-  roleName: string;
-  token: string;
-  roleId?: number;
-}
+import { loginUser } from '../services/UserAPI';
 
 interface User {
   email: string;
@@ -18,13 +7,11 @@ interface User {
   role: 'student' | 'tutor' | 'admin';
   avatar: string;
   userId?: number;
-  token?: string;
 }
 
 interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string; role?: string }>;
-  register: (data: any) => Promise<{ success: boolean; errors?: any }>;
   logout: () => void;
   isAuthenticated: boolean;
 }
@@ -40,48 +27,46 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (user) {
       localStorage.setItem('user', JSON.stringify(user));
-      if (user.token) localStorage.setItem('token', user.token);
     } else {
       localStorage.removeItem('user');
       localStorage.removeItem('token');
     }
   }, [user]);
 
-  const login = async (email: string, password: string) => {
-    const result = await loginAction(email, password);
-    if (result.success && result.user) {
-      // Assert the shape of result.user
-      const backendUser = result.user as LoginUser;
-      const userData: User = {
-        email: backendUser.email,
-        name: backendUser.fullName,
-        role: backendUser.roleName.toLowerCase() as 'student' | 'tutor' | 'admin',
-        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${backendUser.fullName}`,
-        userId: backendUser.userId,
-        token: backendUser.token,
-      };
-      setUser(userData);
-      return { success: true, role: userData.role };
-    }
-    const errorMsg = (result.errors as any)?.general || 'Invalid credentials';
-    return { success: false, error: errorMsg };
-  };
+  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string; role?: string }> => {
+    try {
+      const data = await loginUser({ email, password });
 
-  const register = async (formData: any) => {
-    const result = await registerAction(formData);
-    if (result.success) {
-      toast.success('Account created! Please verify OTP sent to your email & phone.');
+      // Backend returns: { StatusCode, Data: { token, UserId, FullName, Email, RoleName, RoleId }, Message }
+      if (data.StatusCode !== 1) {
+        return { success: false, error: data.Message || 'Invalid email or password' };
+      }
+
+      const { token, UserId, FullName, Email, RoleName } = data.Data;
+      const role = (RoleName as string).toLowerCase() as 'student' | 'tutor' | 'admin';
+
+      localStorage.setItem('token', token);
+
+      const loggedInUser: User = {
+        email: Email,
+        name: FullName,
+        role,
+        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${FullName}`,
+        userId: UserId,
+      };
+      setUser(loggedInUser);
+      return { success: true, role };
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Invalid email or password' };
     }
-    return result;
   };
 
   const logout = () => {
-    logoutAction();
     setUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, isAuthenticated: !!user }}>
+    <AuthContext.Provider value={{ user, login, logout, isAuthenticated: !!user }}>
       {children}
     </AuthContext.Provider>
   );
@@ -89,6 +74,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (context === undefined) throw new Error('useAuth must be used within AuthProvider');
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
   return context;
 }

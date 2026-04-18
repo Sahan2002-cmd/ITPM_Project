@@ -22,7 +22,7 @@
  *   - Booking records are NEVER hard-deleted
  */
 
-const BASE_URL = "http://localhost:5000/api";
+const BASE_URL = "http://localhost:55708/api";
 
 const getAuthHeaders = () => {
   const token = localStorage.getItem("token");
@@ -57,7 +57,7 @@ const handleResponse = async (res) => {
  * @param {Array<{name: string, studentId: string}>} [bookingData.groupMembers]
  */
 export const createBooking = async (bookingData) => {
-  const res = await fetch(`${BASE_URL}/booking`, {
+  const res = await fetch(`${BASE_URL}/booking/create`, {
     method: "POST",
     headers: getAuthHeaders(),
     body: JSON.stringify(bookingData),
@@ -128,7 +128,7 @@ export const getAllBookings = async (filters = {}) => {
  * @param {number} tutorId - For authorization check
  */
 export const acceptBooking = async (bookingId, tutorId) => {
-  const res = await fetch(`${BASE_URL}/booking/${bookingId}/accept`, {
+  const res = await fetch(`${BASE_URL}/booking/accept/${bookingId}`, {
     method: "PUT",
     headers: getAuthHeaders(),
     body: JSON.stringify({ tutorId }),
@@ -145,7 +145,7 @@ export const acceptBooking = async (bookingId, tutorId) => {
  * @param {string} [reason]
  */
 export const declineBooking = async (bookingId, tutorId, reason = "") => {
-  const res = await fetch(`${BASE_URL}/booking/${bookingId}/decline`, {
+  const res = await fetch(`${BASE_URL}/booking/decline/${bookingId}`, {
     method: "PUT",
     headers: getAuthHeaders(),
     body: JSON.stringify({ tutorId, reason }),
@@ -161,7 +161,7 @@ export const declineBooking = async (bookingId, tutorId, reason = "") => {
  * @param {number} requesterId - Student or Tutor user ID
  */
 export const cancelBooking = async (bookingId, requesterId) => {
-  const res = await fetch(`${BASE_URL}/booking/${bookingId}/cancel`, {
+  const res = await fetch(`${BASE_URL}/booking/cancel/${bookingId}`, {
     method: "PUT",
     headers: getAuthHeaders(),
     body: JSON.stringify({ requesterId }),
@@ -176,7 +176,7 @@ export const cancelBooking = async (bookingId, requesterId) => {
  * @param {number} bookingId
  */
 export const completeBooking = async (bookingId) => {
-  const res = await fetch(`${BASE_URL}/booking/${bookingId}/complete`, {
+  const res = await fetch(`${BASE_URL}/booking/complete/${bookingId}`, {
     method: "PUT",
     headers: getAuthHeaders(),
   });
@@ -245,7 +245,7 @@ export const getUnreadNotificationCount = async (userId) => {
  * @param {number} notificationId
  */
 export const markNotificationRead = async (notificationId) => {
-  const res = await fetch(`${BASE_URL}/notification/${notificationId}/read`, {
+  const res = await fetch(`${BASE_URL}/notification/read/${notificationId}`, {
     method: "PUT",
     headers: getAuthHeaders(),
   });

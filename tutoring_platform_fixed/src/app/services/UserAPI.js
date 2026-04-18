@@ -24,7 +24,7 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
-const BASE_URL = "/api";
+const BASE_URL = "https://localhost:44331/api";
 
 const getAuthHeaders = () => {
   const token = localStorage.getItem("token");
@@ -36,11 +36,7 @@ const getAuthHeaders = () => {
 
 const handleResponse = async (res) => {
   const data = await res.json();
-  if (!res.ok) throw new Error(data.Message || `HTTP ${res.status}`);
-  // ✅ correct uppercase properties
-  if (data.StatusCode === 1 && data.Data !== undefined) {
-    return data.Data;   // now returns { token, UserId, FullName, Email, RoleName, RoleId }
-  }
+  if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
   return data;
 };
 
@@ -58,25 +54,11 @@ const handleResponse = async (res) => {
  * { "fullName": "John Doe", "email": "john@example.com",
  *   "phoneNumber": "+1234567890", "password": "Pass@123", "roleId": 3 }
  */
-// In UserAPI.js, update registerUser to include new fields
-export const registerUser = async ({ fullName, email, phoneNumber, password, roleId, center, semester, confirmDetails, profileImage }) => {
+export const registerUser = async ({ fullName, email, phoneNumber, password, roleId }) => {
   const res = await fetch(`${BASE_URL}/user/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ 
-      fullName, email, phoneNumber, password, roleId, 
-      center, semester, confirmDetails, profileImage 
-    }),
-  });
-  return handleResponse(res);
-};
-
-// Add a new API for uploading profile image after registration (if needed)
-export const uploadProfileImage = async (imageBase64) => {
-  const res = await fetch(`${BASE_URL}/user/upload-profile-image`, {
-    method: "POST",
-    headers: getAuthHeaders(),
-    body: JSON.stringify({ imageBase64 }),
+    body: JSON.stringify({ fullName, email, phoneNumber, password, roleId }),
   });
   return handleResponse(res);
 };
@@ -232,6 +214,7 @@ export const editUserProfile = async (body) => {
   });
   return handleResponse(res);
 };
+
 // ══════════════════════════════════════════════════════════
 // ADMIN OPERATIONS
 // ══════════════════════════════════════════════════════════
@@ -327,22 +310,3 @@ export const resetPassword = async ({ email, otpCode, newPassword }) => {
   });
   return handleResponse(res);
 };
-
-export const verifyEditOtp = async (otpCode) => {
-  const res = await fetch(`${BASE_URL}/user/verify-edit-otp`, {
-    method: "POST",
-    headers: getAuthHeaders(),
-    body: JSON.stringify({ otpCode }),
-  });
-  return handleResponse(res);
-};
-// Admin edit user – no OTP required
-export const adminEditUser = async (body) => {
-  const res = await fetch(`${BASE_URL}/user/admin-edit`, {
-    method: "PUT",
-    headers: getAuthHeaders(),
-    body: JSON.stringify(body),
-  });
-  return handleResponse(res);
-};
-

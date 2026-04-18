@@ -20,7 +20,7 @@
  *   - Availability DELETE: hard delete allowed
  */
 
-const BASE_URL = "http://localhost:5000/api";
+const BASE_URL = "http://localhost:55708/api";
 
 const getAuthHeaders = () => {
   const token = localStorage.getItem("token");
@@ -69,11 +69,23 @@ export const createTutorProfile = async (profileData) => {
 // ── READ ──────────────────────────────────────────────────
 
 /**
- * Get a single tutor profile by tutor user ID.
- * @param {number} tutorId
+ * Get a single tutor profile by ObjectId string.
+ * @param {string} tutorId - The MongoDB ObjectId of the tutor profile
  */
 export const getTutorProfileById = async (tutorId) => {
   const res = await fetch(`${BASE_URL}/tutorprofile/${tutorId}`, {
+    headers: getAuthHeaders(),
+  });
+  return handleResponse(res);
+};
+
+/**
+ * Get a tutor's own profile using their integer UserId.
+ * Used on the UserProfile page so a tutor can load and edit their details.
+ * @param {number} userId
+ */
+export const getTutorProfileByUserId = async (userId) => {
+  const res = await fetch(`${BASE_URL}/tutorprofile/by-userid/${userId}`, {
     headers: getAuthHeaders(),
   });
   return handleResponse(res);
@@ -85,6 +97,18 @@ export const getTutorProfileById = async (tutorId) => {
  */
 export const getAllTutors = async () => {
   const res = await fetch(`${BASE_URL}/tutorprofile/all`, {
+    headers: getAuthHeaders(),
+  });
+  return handleResponse(res);
+};
+
+/**
+ * Get a user record by integer UserId (includes PerformanceScore, PerformanceGrade).
+ * Student can only fetch their own record.
+ * @param {number} userId
+ */
+export const getUserById = async (userId) => {
+  const res = await fetch(`${BASE_URL}/user/${userId}`, {
     headers: getAuthHeaders(),
   });
   return handleResponse(res);
@@ -135,7 +159,7 @@ export const getTutorSubjects = async (tutorId) => {
  * @param {Object} updateData - Partial fields: bio, hourlyRate, subjects, etc.
  */
 export const updateTutorProfile = async (tutorId, updateData) => {
-  const res = await fetch(`${BASE_URL}/tutorprofile/${tutorId}`, {
+  const res = await fetch(`${BASE_URL}/tutorprofile/update/${tutorId}`, {
     method: "PUT",
     headers: getAuthHeaders(),
     body: JSON.stringify(updateData),
@@ -190,6 +214,21 @@ export const createAvailabilitySlots = async (tutorId, slots) => {
     method: "POST",
     headers: getAuthHeaders(),
     body: JSON.stringify({ tutorId, slots }),
+  });
+  return handleResponse(res);
+};
+
+/**
+ * Create a single availability slot for a tutor.
+ * Calls POST /api/availability/create with a single AvailabilityRequestApi object.
+ * The backend forces Status = "Free" and validates StartTime not in the past.
+ * @param {{ TutorProfileId: string, Date: string, StartTime: string, EndTime: string }} slot
+ */
+export const createAvailabilitySlot = async (slot) => {
+  const res = await fetch(`${BASE_URL}/availability/create`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+    body: JSON.stringify(slot),
   });
   return handleResponse(res);
 };

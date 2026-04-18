@@ -1,17 +1,80 @@
+import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router";
-import { Star, Clock, BookOpen, MessageSquare, BadgeCheck, Calendar, Award, Users, ThumbsUp, ChevronRight } from "lucide-react";
-import { tutors } from "../data/mockData";
-import { TUTOR_IMAGES } from "../data/mockData";
+import { Clock, BookOpen, MessageSquare, BadgeCheck, Calendar, Award, Users, ThumbsUp, ChevronRight, Loader2, Star } from "lucide-react";
+import { getTutorProfileById } from "../services/Module_01_API";
+import { getRatingsByTutor } from "../services/Module_04_API";
 
-const reviews = [
-  { name: "Emma T.", avatar: TUTOR_IMAGES.student, rating: 5, date: "Feb 2026", text: "Sarah is an incredible tutor! She made calculus finally click for me. Her explanations are clear and she's very patient." },
-  { name: "Marcus R.", avatar: TUTOR_IMAGES.alex, rating: 5, date: "Jan 2026", text: "Excellent session. Sarah helped me prepare for my exam and I got an A! Highly recommend." },
-  { name: "Priya K.", avatar: TUTOR_IMAGES.mei, rating: 4, date: "Jan 2026", text: "Very knowledgeable and professional. The session was well-structured and informative." },
-];
+interface TutorProfile {
+  Id: string;
+  UserId: number;
+  FullName: string;
+  Bio: string;
+  SubjectsTaught: string[];
+  Qualifications: string[];
+  YearsOfExperience: number;
+  HourlyRate: number;
+  IsVerified: boolean;
+  Status: string;
+  Email: string;
+  AverageRating?: number;
+  TotalRatings?: number;
+}
+
+interface ApprovedRating {
+  RatingId: number;
+  StudentId: number;
+  Stars: number;
+  Feedback: string | null;
+  CreatedAt: string;
+}
+
+function toSlstDateStr(utcStr: string) {
+  if (!utcStr) return "";
+  const d = new Date(utcStr.endsWith("Z") ? utcStr : utcStr + "Z");
+  d.setMinutes(d.getMinutes() + 330);
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
 
 export default function TutorProfile() {
-  const { id } = useParams();
-  const tutor = tutors.find(t => t.id === id) || tutors[0];
+  const { id } = useParams<{ id: string }>();
+  const [tutor, setTutor] = useState<TutorProfile | null>(null);
+  const [ratings, setRatings] = useState<ApprovedRating[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!id) return;
+    Promise.all([
+      getTutorProfileById(id),
+      getRatingsByTutor(id),
+    ])
+      .then(([profileRes, ratingRes]: [any, any]) => {
+        const profile = profileRes.Data ?? profileRes;
+        if (!profile || !profile.Id) throw new Error("Tutor not found");
+        setTutor(profile);
+        if (ratingRes?.StatusCode === 1 && Array.isArray(ratingRes.Data)) {
+          setRatings(ratingRes.Data);
+        }
+      })
+      .catch((err: any) => setError(err.message || "Failed to load tutor"))
+      .finally(() => setLoading(false));
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-32">
+        <Loader2 className="w-8 h-8 animate-spin text-violet-600" />
+      </div>
+    );
+  }
+
+  if (error || !tutor) {
+    return (
+      <div className="p-6 max-w-5xl mx-auto text-center py-20 text-rose-600">
+        {error ?? "Tutor not found"}
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
@@ -23,49 +86,48 @@ export default function TutorProfile() {
             <div className="h-32 bg-gradient-to-r from-violet-500 to-indigo-600" />
             <div className="px-6 pb-6">
               <div className="flex items-end gap-4 -mt-10 mb-4">
-                <img src={tutor.avatar} alt={tutor.name} className="w-20 h-20 rounded-2xl border-4 border-white object-cover shadow-md" />
+                <div className="w-20 h-20 rounded-2xl border-4 border-white bg-violet-100 flex items-center justify-center shadow-md text-3xl font-bold text-violet-700">
+                  {tutor.FullName.charAt(0).toUpperCase()}
+                </div>
                 <div className="pb-1">
                   <div className="flex items-center gap-2">
-                    <h1 className="text-xl font-bold text-slate-900">{tutor.name}</h1>
-                    <BadgeCheck className="w-5 h-5 text-violet-500" />
+                    <h1 className="text-xl font-bold text-slate-900">{tutor.FullName}</h1>
+                    {tutor.IsVerified && <BadgeCheck className="w-5 h-5 text-violet-500" />}
                   </div>
-                  <p className="text-sm text-slate-500">{tutor.subjects.join(" • ")}</p>
+                  <p className="text-sm text-slate-500">{(tutor.SubjectsTaught ?? []).join(" • ")}</p>
                 </div>
                 <div className="ml-auto pb-1">
-                  <span className="px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-sm font-semibold">{tutor.badge}</span>
+                  <span className={`px-3 py-1 rounded-full text-sm font-semibold ${tutor.IsVerified ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600"}`}>
+                    {tutor.IsVerified ? "Verified Tutor" : "Tutor"}
+                  </span>
                 </div>
               </div>
 
               <div className="flex items-center gap-5 flex-wrap text-sm">
-                <div className="flex items-center gap-1.5">
-                  <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
-                  <span className="font-bold text-slate-800">{tutor.rating}</span>
-                  <span className="text-slate-400">({tutor.reviews} reviews)</span>
-                </div>
                 <div className="flex items-center gap-1.5 text-slate-600">
                   <BookOpen className="w-4 h-4 text-violet-500" />
-                  {tutor.sessionsCompleted} sessions completed
+                  {(tutor.SubjectsTaught ?? []).length} subjects
                 </div>
                 <div className="flex items-center gap-1.5 text-slate-600">
                   <Clock className="w-4 h-4 text-violet-500" />
-                  {tutor.experience} experience
+                  {tutor.YearsOfExperience} yr{tutor.YearsOfExperience !== 1 ? "s" : ""} experience
                 </div>
                 <div className="flex items-center gap-1.5 text-slate-600">
                   <Calendar className="w-4 h-4 text-violet-500" />
-                  {tutor.availability}
+                  {tutor.Email}
                 </div>
               </div>
 
-              <p className="text-sm text-slate-600 mt-4 leading-relaxed">{tutor.bio} With a focus on building strong foundational understanding, I tailor each session to the student's learning pace and goals.</p>
+              <p className="text-sm text-slate-600 mt-4 leading-relaxed">{tutor.Bio}</p>
             </div>
           </div>
 
           {/* Stats */}
           <div className="grid grid-cols-3 gap-4">
             {[
-              { icon: Users, label: "Students Taught", value: "200+", color: "text-violet-600", bg: "bg-violet-50" },
-              { icon: ThumbsUp, label: "Positive Reviews", value: "98%", color: "text-emerald-600", bg: "bg-emerald-50" },
-              { icon: Award, label: "Response Rate", value: "< 1hr", color: "text-amber-600", bg: "bg-amber-50" },
+              { icon: Users, label: "Years Experience", value: `${tutor.YearsOfExperience}+`, color: "text-violet-600", bg: "bg-violet-50" },
+              { icon: Star, label: "Average Rating", value: tutor.AverageRating && tutor.AverageRating > 0 ? tutor.AverageRating.toFixed(1) : "New", color: "text-amber-600", bg: "bg-amber-50" },
+              { icon: ThumbsUp, label: "Total Reviews", value: tutor.TotalRatings ? tutor.TotalRatings.toString() : "0", color: "text-emerald-600", bg: "bg-emerald-50" },
             ].map(({ icon: Icon, label, value, color, bg }) => (
               <div key={label} className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm text-center">
                 <div className={`w-10 h-10 ${bg} rounded-xl flex items-center justify-center mx-auto mb-2`}>
@@ -81,59 +143,78 @@ export default function TutorProfile() {
           <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
             <h2 className="font-semibold text-slate-800 mb-4 flex items-center gap-2"><BookOpen className="w-4 h-4 text-violet-600" /> Subjects Offered</h2>
             <div className="flex gap-2 flex-wrap">
-              {[...tutor.subjects, "Linear Algebra", "Differential Equations", "Probability"].map(sub => (
+              {(tutor.SubjectsTaught ?? []).map(sub => (
                 <span key={sub} className="px-3 py-2 bg-violet-50 border border-violet-100 text-violet-700 rounded-xl text-sm font-medium">{sub}</span>
               ))}
             </div>
           </div>
 
-          {/* Reviews */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
-            <h2 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
-              <Star className="w-4 h-4 text-amber-400" /> Student Reviews
-            </h2>
-
-            {/* Rating breakdown */}
-            <div className="flex items-center gap-6 mb-5 p-4 bg-slate-50 rounded-xl">
-              <div className="text-center">
-                <p className="text-4xl font-bold text-slate-900">{tutor.rating}</p>
-                <div className="flex items-center gap-0.5 my-1">
-                  {Array.from({ length: 5 }).map((_, i) => <Star key={i} className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />)}
-                </div>
-                <p className="text-xs text-slate-500">{tutor.reviews} reviews</p>
-              </div>
-              <div className="flex-1 space-y-1.5">
-                {[5, 4, 3, 2, 1].map(r => (
-                  <div key={r} className="flex items-center gap-2">
-                    <span className="text-xs text-slate-500 w-3">{r}</span>
-                    <div className="flex-1 h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                      <div className="h-full bg-amber-400 rounded-full" style={{ width: r === 5 ? "78%" : r === 4 ? "15%" : r === 3 ? "5%" : "1%" }} />
+          {/* Qualifications */}
+          {(tutor.Qualifications ?? []).length > 0 && (
+            <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+              <h2 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                <Award className="w-4 h-4 text-violet-600" /> Qualifications
+              </h2>
+              <div className="space-y-2">
+                {(tutor.Qualifications ?? []).map((q, i) => (
+                  <div key={i} className="flex items-center gap-2 text-sm text-slate-600">
+                    <div className="w-4 h-4 bg-violet-100 rounded-full flex items-center justify-center flex-shrink-0">
+                      <svg className="w-2.5 h-2.5 text-violet-500" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
                     </div>
-                    <span className="text-xs text-slate-400">{r === 5 ? "78%" : r === 4 ? "15%" : r === 3 ? "5%" : "1%"}</span>
+                    {q}
                   </div>
                 ))}
               </div>
             </div>
+          )}
 
-            <div className="space-y-4">
-              {reviews.map((r, i) => (
-                <div key={i} className="border-b border-slate-100 last:border-0 pb-4 last:pb-0">
-                  <div className="flex items-center gap-3 mb-2">
-                    <img src={r.avatar} alt={r.name} className="w-9 h-9 rounded-full object-cover" />
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between">
-                        <p className="text-sm font-medium text-slate-800">{r.name}</p>
-                        <span className="text-xs text-slate-400">{r.date}</span>
-                      </div>
-                      <div className="flex gap-0.5 mt-0.5">
-                        {Array.from({ length: 5 }).map((_, j) => <Star key={j} className={`w-3 h-3 ${j < r.rating ? "fill-amber-400 text-amber-400" : "text-slate-200"}`} />)}
-                      </div>
-                    </div>
+          {/* Reviews */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-semibold text-slate-800 flex items-center gap-2">
+                <Star className="w-4 h-4 fill-amber-400 text-amber-400" /> Student Reviews
+              </h2>
+              {tutor.AverageRating && tutor.AverageRating > 0 && (
+                <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-0.5">
+                    {[1, 2, 3, 4, 5].map(n => (
+                      <Star key={n} className={`w-3.5 h-3.5 ${
+                        n <= Math.round(tutor.AverageRating!) ? "fill-amber-400 text-amber-400" : "text-slate-200"
+                      }`} />
+                    ))}
                   </div>
-                  <p className="text-sm text-slate-600">{r.text}</p>
+                  <span className="text-sm font-bold text-slate-700">{tutor.AverageRating!.toFixed(1)}</span>
+                  <span className="text-xs text-slate-400">({tutor.TotalRatings} review{tutor.TotalRatings !== 1 ? "s" : ""})</span>
                 </div>
-              ))}
+              )}
             </div>
+
+            {ratings.length === 0 ? (
+              <p className="text-sm text-slate-400 text-center py-6">No approved reviews yet.</p>
+            ) : (
+              <div className="space-y-4">
+                {ratings.map(r => (
+                  <div key={r.RatingId} className="border-b border-slate-100 last:border-0 pb-4 last:pb-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-0.5">
+                        {[1, 2, 3, 4, 5].map(n => (
+                          <Star key={n} className={`w-3.5 h-3.5 ${n <= r.Stars ? "fill-amber-400 text-amber-400" : "text-slate-200"}`} />
+                        ))}
+                      </div>
+                      <span className="text-xs text-slate-400">{toSlstDateStr(r.CreatedAt)}</span>
+                    </div>
+                    {r.Feedback ? (
+                      <p className="text-sm text-slate-600 leading-relaxed">{r.Feedback}</p>
+                    ) : (
+                      <p className="text-xs text-slate-400 italic">No written feedback.</p>
+                    )}
+                    <p className="text-xs text-slate-400 mt-1">— Student #{r.StudentId}</p>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -141,7 +222,7 @@ export default function TutorProfile() {
         <div className="space-y-4">
           <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm sticky top-4">
             <div className="text-center mb-5">
-              <p className="text-3xl font-bold text-violet-600">${tutor.hourlyRate}</p>
+              <p className="text-3xl font-bold text-violet-600">Rs. {tutor.HourlyRate.toLocaleString()}</p>
               <p className="text-sm text-slate-400">per hour</p>
             </div>
 
@@ -156,14 +237,14 @@ export default function TutorProfile() {
               ))}
             </div>
 
-            <Link to={`/booking/${tutor.id}`}
+            <Link to={`/student/booking/${tutor.Id}`}
               className="w-full flex items-center justify-center gap-2 py-3 bg-violet-600 text-white rounded-xl font-medium text-sm hover:bg-violet-700 transition-colors shadow-md shadow-violet-200">
               Book a Session <ChevronRight className="w-4 h-4" />
             </Link>
             <Link to="/chat" className="w-full flex items-center justify-center gap-2 py-2.5 mt-2 border border-slate-200 text-slate-700 rounded-xl font-medium text-sm hover:bg-slate-50 transition-colors">
               <MessageSquare className="w-4 h-4 text-violet-500" /> Send Message
             </Link>
-            <p className="text-xs text-center text-slate-400 mt-3">Free cancellation up to 24 hours before</p>
+            <p className="text-xs text-center text-slate-400 mt-3">Free cancellation up to 2 hours before</p>
           </div>
         </div>
       </div>

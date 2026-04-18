@@ -1,29 +1,59 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router";
-import { Star, Search, Filter, Clock, BookOpen, ChevronRight, BadgeCheck } from "lucide-react";
-import { tutors, subjects } from "../data/mockData";
+import { Star, Search, Clock, BookOpen, ChevronRight, BadgeCheck, Loader2 } from "lucide-react";
+import { getAllTutors } from "../services/Module_01_API";
 
-const BADGE_COLORS: Record<string, string> = {
-  "Top Rated": "bg-amber-100 text-amber-700",
-  "Expert": "bg-violet-100 text-violet-700",
-  "Pro": "bg-blue-100 text-blue-700",
-  "Rising Star": "bg-emerald-100 text-emerald-700",
-};
+interface TutorProfile {
+  Id: string;
+  UserId: number;
+  FullName: string;
+  Bio: string;
+  SubjectsTaught: string[];
+  Qualifications: string[];
+  YearsOfExperience: number;
+  HourlyRate: number;
+  IsVerified: boolean;
+  Status: string;
+  Email: string;
+}
 
 export default function BrowseTutors() {
+  const [tutors, setTutors] = useState<TutorProfile[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [selectedSubject, setSelectedSubject] = useState("All");
   const [priceRange, setPriceRange] = useState("All");
-  const [sortBy, setSortBy] = useState("rating");
+  const [sortBy, setSortBy] = useState("name");
 
-  const filtered = tutors.filter((t) => {
-    const matchSearch = t.name.toLowerCase().includes(search.toLowerCase()) || t.subjects.some(s => s.toLowerCase().includes(search.toLowerCase()));
-    const matchSubject = selectedSubject === "All" || t.subjects.includes(selectedSubject);
-    const matchPrice = priceRange === "All" || (priceRange === "<40" && t.hourlyRate < 40) || (priceRange === "40-50" && t.hourlyRate >= 40 && t.hourlyRate <= 50) || (priceRange === ">50" && t.hourlyRate > 50);
-    return matchSearch && matchSubject && matchPrice;
-  });
+  useEffect(() => {
+    getAllTutors()
+      .then((res: any) => setTutors(res.Data ?? res ?? []))
+      .catch((err: any) => setError(err.message || "Failed to load tutors"))
+      .finally(() => setLoading(false));
+  }, []);
 
-  const popularSubjects = ["All", "Mathematics", "Physics", "Programming", "English", "Chemistry"];
+  const subjectsFromTutors = ["All", ...Array.from(new Set(tutors.flatMap(t => t.SubjectsTaught ?? [])))];
+  const popularSubjects = subjectsFromTutors.slice(0, 7);
+
+  const filtered = tutors
+    .filter((t) => {
+      const matchSearch =
+        t.FullName.toLowerCase().includes(search.toLowerCase()) ||
+        (t.SubjectsTaught ?? []).some(s => s.toLowerCase().includes(search.toLowerCase()));
+      const matchSubject = selectedSubject === "All" || (t.SubjectsTaught ?? []).includes(selectedSubject);
+      const matchPrice =
+        priceRange === "All" ||
+        (priceRange === "<2000" && t.HourlyRate < 2000) ||
+        (priceRange === "2000-3500" && t.HourlyRate >= 2000 && t.HourlyRate <= 3500) ||
+        (priceRange === ">3500" && t.HourlyRate > 3500);
+      return matchSearch && matchSubject && matchPrice;
+    })
+    .sort((a, b) =>
+      sortBy === "price_low" ? a.HourlyRate - b.HourlyRate :
+      sortBy === "price_high" ? b.HourlyRate - a.HourlyRate :
+      a.FullName.localeCompare(b.FullName)
+    );
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -51,23 +81,19 @@ export default function BrowseTutors() {
             className="px-4 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 bg-white"
           >
             <option value="All">Any Price</option>
-            <option value="<40">Under $40/hr</option>
-            <option value="40-50">$40 - $50/hr</option>
-            <option value=">50">$50+/hr</option>
+            <option value="<2000">Under Rs. 2,000/hr</option>
+            <option value="2000-3500">Rs. 2,000 – 3,500/hr</option>
+            <option value=">3500">Rs. 3,500+/hr</option>
           </select>
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
             className="px-4 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 bg-white"
           >
-            <option value="rating">Sort: Top Rated</option>
+            <option value="name">Sort: A – Z</option>
             <option value="price_low">Price: Low to High</option>
             <option value="price_high">Price: High to Low</option>
-            <option value="reviews">Most Reviews</option>
           </select>
-          <button className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-700 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors">
-            <Filter className="w-4 h-4" /> More Filters
-          </button>
         </div>
 
         {/* Subject Chips */}
@@ -89,74 +115,87 @@ export default function BrowseTutors() {
       </div>
 
       {/* Results */}
-      <div className="mb-3 flex items-center justify-between">
-        <p className="text-sm text-slate-500">{filtered.length} tutors found</p>
-      </div>
+      {loading ? (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="w-8 h-8 animate-spin text-violet-600" />
+        </div>
+      ) : error ? (
+        <div className="text-center py-20 text-rose-600">{error}</div>
+      ) : (
+        <>
+          <div className="mb-3 flex items-center justify-between">
+            <p className="text-sm text-slate-500">{filtered.length} tutor{filtered.length !== 1 ? "s" : ""} found</p>
+          </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 gap-5">
-        {filtered.map((tutor) => (
-          <div key={tutor.id} className="bg-white rounded-2xl border border-slate-200 p-5 hover:shadow-md hover:border-violet-200 transition-all duration-200 group">
-            <div className="flex gap-4">
-              <img src={tutor.avatar} alt={tutor.name} className="w-16 h-16 rounded-xl object-cover flex-shrink-0" />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-semibold text-slate-900">{tutor.name}</h3>
-                      <BadgeCheck className="w-4 h-4 text-violet-500" />
+          {filtered.length === 0 ? (
+            <div className="text-center py-20 text-slate-400">No tutors match your filters.</div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 gap-5">
+              {filtered.map((tutor) => (
+                <div key={tutor.Id} className="bg-white rounded-2xl border border-slate-200 p-5 hover:shadow-md hover:border-violet-200 transition-all duration-200 group">
+                  <div className="flex gap-4">
+                    <div className="w-16 h-16 rounded-xl bg-violet-100 flex items-center justify-center flex-shrink-0 text-xl font-bold text-violet-700">
+                      {tutor.FullName.charAt(0).toUpperCase()}
                     </div>
-                    <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium mt-0.5 ${BADGE_COLORS[tutor.badge] || "bg-slate-100 text-slate-600"}`}>
-                      {tutor.badge}
-                    </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-semibold text-slate-900">{tutor.FullName}</h3>
+                            {tutor.IsVerified && <BadgeCheck className="w-4 h-4 text-violet-500" />}
+                          </div>
+                          <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium mt-0.5 bg-violet-100 text-violet-700">
+                            {tutor.IsVerified ? "Verified" : "Unverified"}
+                          </span>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-lg font-bold text-violet-600">
+                            Rs. {tutor.HourlyRate.toLocaleString()}
+                            <span className="text-xs text-slate-400 font-normal">/hr</span>
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3 mt-2">
+                        <div className="flex items-center gap-1 text-xs text-slate-500">
+                          <Clock className="w-3 h-3" /> {tutor.YearsOfExperience} yr{tutor.YearsOfExperience !== 1 ? "s" : ""} exp
+                        </div>
+                        <span className="text-slate-200">|</span>
+                        <div className="flex items-center gap-1 text-xs text-slate-500">
+                          <BookOpen className="w-3 h-3" /> {(tutor.SubjectsTaught ?? []).length} subjects
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-lg font-bold text-violet-600">${tutor.hourlyRate}<span className="text-xs text-slate-400 font-normal">/hr</span></p>
+
+                  <p className="text-sm text-slate-500 mt-3 line-clamp-2">{tutor.Bio}</p>
+
+                  <div className="flex gap-1.5 flex-wrap mt-3">
+                    {(tutor.SubjectsTaught ?? []).map((sub) => (
+                      <span key={sub} className="px-2.5 py-1 bg-violet-50 text-violet-700 rounded-lg text-xs font-medium">{sub}</span>
+                    ))}
+                  </div>
+
+                  <div className="flex gap-2 mt-4">
+                    <Link
+                      to={`/tutor/profile/${tutor.Id}`}
+                      className="flex-1 text-center py-2 text-sm font-medium text-slate-700 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors"
+                    >
+                      View Profile
+                    </Link>
+                    <Link
+                      to={`/student/booking/${tutor.Id}`}
+                      className="flex-1 flex items-center justify-center gap-1 py-2 text-sm font-medium text-white bg-violet-600 rounded-xl hover:bg-violet-700 transition-colors"
+                    >
+                      Book Session <ChevronRight className="w-3.5 h-3.5" />
+                    </Link>
                   </div>
                 </div>
-
-                <div className="flex items-center gap-3 mt-2">
-                  <div className="flex items-center gap-1">
-                    <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                    <span className="text-sm font-medium text-slate-700">{tutor.rating}</span>
-                    <span className="text-xs text-slate-400">({tutor.reviews})</span>
-                  </div>
-                  <span className="text-slate-200">|</span>
-                  <div className="flex items-center gap-1 text-xs text-slate-500">
-                    <Clock className="w-3 h-3" /> {tutor.experience}
-                  </div>
-                  <span className="text-slate-200">|</span>
-                  <div className="flex items-center gap-1 text-xs text-slate-500">
-                    <BookOpen className="w-3 h-3" /> {tutor.sessionsCompleted} sessions
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <p className="text-sm text-slate-500 mt-3 line-clamp-2">{tutor.bio}</p>
-
-            <div className="flex gap-1.5 flex-wrap mt-3">
-              {tutor.subjects.map((sub) => (
-                <span key={sub} className="px-2.5 py-1 bg-violet-50 text-violet-700 rounded-lg text-xs font-medium">{sub}</span>
               ))}
             </div>
-
-            <div className="flex gap-2 mt-4">
-              <Link
-                to={`/tutor/profile/${tutor.id}`}
-                className="flex-1 text-center py-2 text-sm font-medium text-slate-700 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors"
-              >
-                View Profile
-              </Link>
-              <Link
-                to={`/student/booking/${tutor.id}`}
-                className="flex-1 flex items-center justify-center gap-1 py-2 text-sm font-medium text-white bg-violet-600 rounded-xl hover:bg-violet-700 transition-colors"
-              >
-                Book Session <ChevronRight className="w-3.5 h-3.5" />
-              </Link>
-            </div>
-          </div>
-        ))}
-      </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
