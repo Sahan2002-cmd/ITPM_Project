@@ -100,7 +100,17 @@ export default function Chat() {
     try {
       const data = await getDirectMessages(sel.userId);
       const arr = Array.isArray(data) ? data : (data?.Data ?? data?.data ?? []);
-      setMsgs(Array.isArray(arr) ? arr : []);
+      const normalized = (Array.isArray(arr) ? arr : []).map(m => ({
+        outMessageId: m.OutMessageId ?? m.outMessageId,
+        messageId: m.MessageId ?? m.messageId,
+        senderId: m.SenderId ?? m.senderId,
+        receiverId: m.ReceiverId ?? m.receiverId,
+        messageText: m.MessageText ?? m.messageText ?? "",
+        createdAt: m.CreatedAt ?? m.createdAt,
+        editedAt: m.EditedAt ?? m.editedAt,
+        isRead: m.IsRead ?? m.isRead,
+      }));
+      setMsgs(normalized);
     } catch { }
   }, [sel, uid]);
 
@@ -179,7 +189,7 @@ export default function Chat() {
   const handleRefresh = async () => { setRefreshing(true); await loadMsgs(); setRefreshing(false); };
   const onKey = (e: React.KeyboardEvent) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); doSend(); } };
 
-  const filtered = partners.filter(p => p.fullName.toLowerCase().includes(searchQ.toLowerCase()));
+  const filtered = partners.filter(p => (p.fullName || "").toLowerCase().includes((searchQ || "").toLowerCase()));
 
   if (loading) return (
     <div className="flex items-center justify-center h-full">
