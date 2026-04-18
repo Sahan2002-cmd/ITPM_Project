@@ -1,11 +1,12 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../contexts/AuthContext';
 import { registerUser, verifyOtp } from '../services/UserAPI';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Mail, Lock, User, Phone, MapPin, GraduationCap, Building2,
-  Eye, EyeOff, AlertCircle, CheckCircle2, Loader2, ArrowLeft
+  Eye, EyeOff, AlertCircle, CheckCircle2, Loader2, ArrowLeft,
+  Camera, X, Calendar, BookOpen, Shield, FileText
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -24,6 +25,10 @@ interface SignUpFormData {
   confirmPassword: string;
   phone: string;
   role: UserRole;
+  profilePhoto?: File | null;
+  profilePhotoPreview?: string;
+  semester?: string;
+  year?: string;
   // Student fields
   institution?: string;
   grade?: string;
@@ -34,6 +39,69 @@ interface SignUpFormData {
   // Admin fields
   employeeId?: string;
   department?: string;
+  // T&C
+  agreedToTerms?: boolean;
+}
+
+// ─── Terms & Conditions Modal ─────────────────────────────────────────────
+function TermsModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+      onClick={onClose}>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
+        className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] flex flex-col overflow-hidden"
+        onClick={e => e.stopPropagation()}>
+        <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <Shield className="w-5 h-5 text-violet-600" />
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white">Terms & Conditions</h2>
+          </div>
+          <button onClick={onClose} className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors">
+            <X className="w-5 h-5 text-slate-500" />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-6 py-4 text-sm text-slate-700 dark:text-slate-300 space-y-4">
+          <h3 className="font-semibold text-slate-900 dark:text-white">1. Platform Usage</h3>
+          <p>PeerLearn is an academic tutoring platform exclusively for SLIIT students and verified tutors. All users must register with a valid SLIIT email address and agree to use the platform solely for educational purposes.</p>
+
+          <h3 className="font-semibold text-slate-900 dark:text-white">2. User Accounts</h3>
+          <p>Users are responsible for maintaining the confidentiality of their login credentials. Sharing accounts is strictly prohibited. Each user must provide accurate personal information during registration, including a valid profile photo for identification.</p>
+
+          <h3 className="font-semibold text-slate-900 dark:text-white">3. Academic Integrity</h3>
+          <p>All tutoring sessions must adhere to SLIIT's academic integrity policies. Tutors must not complete assignments on behalf of students. Sharing exam questions, answers, or any form of academic dishonesty is grounds for immediate account suspension.</p>
+
+          <h3 className="font-semibold text-slate-900 dark:text-white">4. Communication Guidelines</h3>
+          <p>All in-session and out-session messages must be respectful and relevant to academic content. Harassment, hate speech, spam, or sharing inappropriate content will result in account suspension. Messages may be monitored by administrators for compliance.</p>
+
+          <h3 className="font-semibold text-slate-900 dark:text-white">5. File Sharing Policy</h3>
+          <p>Uploaded files must be educational materials only (PDF, DOCX, PNG, JPG). Maximum file size is 20MB. Uploading copyrighted material without permission, malicious files, or inappropriate content is prohibited.</p>
+
+          <h3 className="font-semibold text-slate-900 dark:text-white">6. Session Notes</h3>
+          <p>Tutors are required to submit session notes within 24 hours of session completion. Notes should accurately reflect the topics covered and any assigned homework. Session notes may be reviewed by administrators.</p>
+
+          <h3 className="font-semibold text-slate-900 dark:text-white">7. Payment & Refunds</h3>
+          <p>Session fees are determined by individual tutors within the platform's allowed rate range (Rs. 100 – Rs. 5,000/hour). Cancellation policies apply as per booking terms. Refund requests must be submitted within 48 hours of the session.</p>
+
+          <h3 className="font-semibold text-slate-900 dark:text-white">8. Privacy & Data Protection</h3>
+          <p>User data is stored securely and will not be shared with third parties. Profile information is visible only to matched tutors/students and administrators. Users may request data deletion by contacting support.</p>
+
+          <h3 className="font-semibold text-slate-900 dark:text-white">9. Account Suspension</h3>
+          <p>Administrators reserve the right to suspend or deactivate accounts that violate these terms. Users will be notified of any status changes and may appeal through the support channel.</p>
+
+          <h3 className="font-semibold text-slate-900 dark:text-white">10. Acceptance</h3>
+          <p>By creating an account on PeerLearn, you acknowledge that you have read, understood, and agree to abide by all the terms and conditions stated above. Violation of these terms may result in permanent account suspension.</p>
+        </div>
+        <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700 flex-shrink-0">
+          <button onClick={onClose}
+            className="w-full py-2.5 bg-violet-600 text-white rounded-xl font-semibold hover:bg-violet-700 transition-colors">
+            I Understand
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
 }
 
 export default function Auth() {
@@ -44,6 +112,9 @@ export default function Auth() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<ValidationError[]>([]);
+  const [showTerms, setShowTerms] = useState(false);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Sign In State
   const [signInEmail, setSignInEmail] = useState('');
@@ -57,12 +128,45 @@ export default function Auth() {
     confirmPassword: '',
     phone: '',
     role: 'student',
+    profilePhoto: null,
+    profilePhotoPreview: '',
+    semester: '',
+    year: '',
+    agreedToTerms: false,
   });
 
   // OTP verification state
   const [showOtpStep, setShowOtpStep] = useState(false);
   const [pendingEmail, setPendingEmail] = useState('');
   const [otpCode, setOtpCode] = useState('');
+
+  // ── Profile Photo Handler ────────────────────────────────────────
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image must be under 5MB');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setSignUpData(prev => ({
+        ...prev,
+        profilePhoto: file,
+        profilePhotoPreview: reader.result as string,
+      }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const removePhoto = () => {
+    setSignUpData(prev => ({ ...prev, profilePhoto: null, profilePhotoPreview: '' }));
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
 
   // Validation Functions
   const validateEmail = (email: string): string | null => {
@@ -79,7 +183,7 @@ export default function Auth() {
     if (!/[A-Z]/.test(password)) return 'Password must contain at least one uppercase letter';
     if (!/[a-z]/.test(password)) return 'Password must contain at least one lowercase letter';
     if (!/[0-9]/.test(password)) return 'Password must contain at least one number';
-    if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) return 'Password must contain at least one special character';
+    if (!/[!@#$%^&*(),.?":\{\}|<>]/.test(password)) return 'Password must contain at least one special character';
     return null;
   };
 
@@ -186,13 +290,21 @@ export default function Auth() {
     const phoneError = validatePhone(signUpData.phone);
     if (phoneError) newErrors.push({ field: 'phone', message: phoneError });
 
+    // T&C check
+    if (!signUpData.agreedToTerms) {
+      newErrors.push({ field: 'terms', message: 'You must agree to the Terms & Conditions' });
+    }
+
     // Role-specific validations
     if (signUpData.role === 'student') {
       if (!signUpData.institution) {
         newErrors.push({ field: 'institution', message: 'Institution is required' });
       }
-      if (!signUpData.grade) {
-        newErrors.push({ field: 'grade', message: 'Grade/Year is required' });
+      if (!signUpData.year) {
+        newErrors.push({ field: 'year', message: 'Year is required' });
+      }
+      if (!signUpData.semester) {
+        newErrors.push({ field: 'semester', message: 'Semester is required' });
       }
     }
 
@@ -300,21 +412,23 @@ export default function Auth() {
     setIsLoading(false);
   };
 
-  // Google OAuth Handler
+  // Google OAuth Handler — uses demo flow for university project
   const handleGoogleOAuth = async () => {
     setIsLoading(true);
     toast.info('Google OAuth', {
-      description: 'Redirecting to Google authentication...',
+      description: 'Connecting to Google authentication...',
     });
 
-    // Simulate OAuth flow
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    // For demo: simulate Google OAuth and login as student
+    await new Promise(resolve => setTimeout(resolve, 1500));
 
-    // For demo purposes, simulate Google OAuth as student
-    // In production, this would use real Google OAuth token
-    await authLogin('it23837676@my.sliit.lk', 'Student@123');
-    toast.success('Signed in with Google!');
-    navigate('/student/dashboard');
+    const result = await authLogin('student@sliit.lk', 'Student@123');
+    if (result.success) {
+      toast.success('Signed in with Google!');
+      navigate('/student/dashboard');
+    } else {
+      toast.error('Google sign-in failed. Try manual login.');
+    }
     setIsLoading(false);
   };
 
@@ -334,6 +448,9 @@ export default function Auth() {
       >
         <ArrowLeft className="w-5 h-5 text-slate-600 dark:text-slate-400 group-hover:text-violet-600 dark:group-hover:text-violet-400" />
       </button>
+
+      {/* Terms & Conditions Modal */}
+      <TermsModal open={showTerms} onClose={() => setShowTerms(false)} />
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -531,22 +648,10 @@ export default function Auth() {
                     className="w-full py-3 bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl font-semibold hover:bg-slate-50 dark:hover:bg-slate-750 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
                   >
                     <svg className="w-5 h-5" viewBox="0 0 24 24">
-                      <path
-                        fill="currentColor"
-                        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                      />
-                      <path
-                        fill="currentColor"
-                        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                      />
-                      <path
-                        fill="currentColor"
-                        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                      />
-                      <path
-                        fill="currentColor"
-                        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                      />
+                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
                     </svg>
                     Sign in with Google
                   </button>
@@ -557,9 +662,9 @@ export default function Auth() {
                       Demo Credentials:
                     </p>
                     <div className="space-y-1 text-xs text-slate-600 dark:text-slate-400">
-                      <p>Student: it23837676@my.sliit.lk / Student@123</p>
-                      <p>Tutor: randeer.p@sliit.lk / Tutor@123</p>
-                      <p>Admin: gamage.admin@sliit.lk / Admin@123</p>
+                      <p>Student: student@sliit.lk / Student@123</p>
+                      <p>Tutor: tutor@sliit.lk / Tutor@123</p>
+                      <p>Admin: admin@sliit.lk / Admin@123</p>
                     </div>
                   </div>
                 </motion.form>
@@ -649,6 +754,38 @@ export default function Auth() {
                           {role}
                         </button>
                       ))}
+                    </div>
+                  </div>
+
+                  {/* ── Profile Photo Upload ── */}
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                      Profile Photo
+                    </label>
+                    <div className="flex items-center gap-4">
+                      <div className="relative w-20 h-20 rounded-full overflow-hidden bg-slate-100 dark:bg-slate-800 border-2 border-dashed border-slate-300 dark:border-slate-600 flex items-center justify-center flex-shrink-0">
+                        {signUpData.profilePhotoPreview ? (
+                          <>
+                            <img src={signUpData.profilePhotoPreview} alt="Preview" className="w-full h-full object-cover" />
+                            <button type="button" onClick={removePhoto}
+                              className="absolute -top-1 -right-1 w-5 h-5 bg-rose-500 text-white rounded-full flex items-center justify-center shadow-md hover:bg-rose-600 transition-colors">
+                              <X className="w-3 h-3" />
+                            </button>
+                          </>
+                        ) : (
+                          <Camera className="w-6 h-6 text-slate-400" />
+                        )}
+                      </div>
+                      <div>
+                        <button type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="px-4 py-2 bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400 rounded-lg text-sm font-medium hover:bg-violet-100 dark:hover:bg-violet-900/40 transition-colors">
+                          {signUpData.profilePhotoPreview ? 'Change Photo' : 'Upload Photo'}
+                        </button>
+                        <p className="text-xs text-slate-400 mt-1">JPG, PNG • Max 5MB</p>
+                        <input ref={fileInputRef} type="file" accept="image/*" className="hidden"
+                          onChange={handlePhotoChange} />
+                      </div>
                     </div>
                   </div>
 
@@ -822,28 +959,55 @@ export default function Auth() {
                         )}
                       </div>
 
+                      {/* Year Selector */}
                       <div>
                         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                          Grade/Year *
+                          <Calendar className="inline w-4 h-4 mr-1 text-slate-400" />
+                          Year *
                         </label>
                         <select
-                          value={signUpData.grade || ''}
-                          onChange={(e) => setSignUpData({ ...signUpData, grade: e.target.value })}
+                          value={signUpData.year || ''}
+                          onChange={(e) => setSignUpData({ ...signUpData, year: e.target.value })}
                           className={`w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border ${
-                            hasError('grade')
+                            hasError('year')
                               ? 'border-red-500'
                               : 'border-slate-200 dark:border-slate-700'
                           } rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500/20`}
                           disabled={isLoading}
                         >
                           <option value="">Select year</option>
-                          <option value="Year 1">Year 1</option>
-                          <option value="Year 2">Year 2</option>
-                          <option value="Year 3">Year 3</option>
-                          <option value="Year 4">Year 4</option>
+                          <option value="1">Year 1</option>
+                          <option value="2">Year 2</option>
+                          <option value="3">Year 3</option>
+                          <option value="4">Year 4</option>
                         </select>
-                        {hasError('grade') && (
-                          <p className="mt-1 text-xs text-red-600 dark:text-red-400">{getError('grade')}</p>
+                        {hasError('year') && (
+                          <p className="mt-1 text-xs text-red-600 dark:text-red-400">{getError('year')}</p>
+                        )}
+                      </div>
+
+                      {/* Semester Selector */}
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                          <BookOpen className="inline w-4 h-4 mr-1 text-slate-400" />
+                          Semester *
+                        </label>
+                        <select
+                          value={signUpData.semester || ''}
+                          onChange={(e) => setSignUpData({ ...signUpData, semester: e.target.value })}
+                          className={`w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border ${
+                            hasError('semester')
+                              ? 'border-red-500'
+                              : 'border-slate-200 dark:border-slate-700'
+                          } rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500/20`}
+                          disabled={isLoading}
+                        >
+                          <option value="">Select semester</option>
+                          <option value="1">Semester 1</option>
+                          <option value="2">Semester 2</option>
+                        </select>
+                        {hasError('semester') && (
+                          <p className="mt-1 text-xs text-red-600 dark:text-red-400">{getError('semester')}</p>
                         )}
                       </div>
                     </>
@@ -970,9 +1134,42 @@ export default function Auth() {
                     </>
                   )}
 
+                  {/* ── Terms & Conditions Checkbox ── */}
+                  <div className="pt-2">
+                    <label className={`flex items-start gap-3 cursor-pointer group ${hasError('terms') ? '' : ''}`}>
+                      <input
+                        type="checkbox"
+                        checked={signUpData.agreedToTerms || false}
+                        onChange={(e) => setSignUpData({ ...signUpData, agreedToTerms: e.target.checked })}
+                        className="mt-0.5 w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-violet-600 focus:ring-violet-500/30"
+                      />
+                      <span className="text-sm text-slate-600 dark:text-slate-400">
+                        I agree to the{' '}
+                        <button type="button" onClick={() => setShowTerms(true)}
+                          className="text-violet-600 dark:text-violet-400 font-medium hover:underline">
+                          Terms & Conditions
+                        </button>
+                        {' '}and Privacy Policy of PeerLearn
+                      </span>
+                    </label>
+                    {hasError('terms') && (
+                      <p className="mt-1 text-xs text-red-600 dark:text-red-400 ml-7">{getError('terms')}</p>
+                    )}
+                  </div>
+
+                  {/* General error */}
+                  {hasError('general') && (
+                    <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl">
+                      <p className="text-sm text-red-600 dark:text-red-400 flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4" />
+                        {getError('general')}
+                      </p>
+                    </div>
+                  )}
+
                   <button
                     type="submit"
-                    disabled={isLoading}
+                    disabled={isLoading || !signUpData.agreedToTerms}
                     className="w-full py-3 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-xl font-semibold hover:from-violet-700 hover:to-indigo-700 transition-all shadow-lg shadow-violet-500/30 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                   >
                     {isLoading ? (
@@ -1003,22 +1200,10 @@ export default function Auth() {
                     className="w-full py-3 bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl font-semibold hover:bg-slate-50 dark:hover:bg-slate-750 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
                   >
                     <svg className="w-5 h-5" viewBox="0 0 24 24">
-                      <path
-                        fill="currentColor"
-                        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                      />
-                      <path
-                        fill="currentColor"
-                        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                      />
-                      <path
-                        fill="currentColor"
-                        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                      />
-                      <path
-                        fill="currentColor"
-                        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                      />
+                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
                     </svg>
                     Sign up with Google
                   </button>
