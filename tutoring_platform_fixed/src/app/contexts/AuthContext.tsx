@@ -42,7 +42,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { success: false, error: data.Message || 'Invalid email or password' };
       }
 
-      const { token, UserId, FullName, Email, RoleName } = data.Data;
+      const { token, UserId, FullName, Email, RoleName, ProfileImage } = data.Data;
       const role = (RoleName as string).toLowerCase() as 'student' | 'tutor' | 'admin';
 
       localStorage.setItem('token', token);
@@ -51,7 +51,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         email: Email,
         name: FullName,
         role,
-        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${FullName}`,
+        avatar: ProfileImage || `https://api.dicebear.com/7.x/avataaars/svg?seed=${FullName}`,
         userId: UserId,
       };
       setUser(loggedInUser);

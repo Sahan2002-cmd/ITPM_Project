@@ -30,7 +30,6 @@ interface SignUpFormData {
   semester?: string;
   year?: string;
   // Student fields
-  institution?: string;
   grade?: string;
   // Tutor fields
   subjects?: string;
@@ -297,9 +296,6 @@ export default function Auth() {
 
     // Role-specific validations
     if (signUpData.role === 'student') {
-      if (!signUpData.institution) {
-        newErrors.push({ field: 'institution', message: 'Institution is required' });
-      }
       if (!signUpData.year) {
         newErrors.push({ field: 'year', message: 'Year is required' });
       }
@@ -352,6 +348,7 @@ export default function Auth() {
         phoneNumber: signUpData.phone,
         password: signUpData.password,
         roleId: roleIdMap[signUpData.role],
+        profileImage: signUpData.profilePhotoPreview,
       });
 
       if (data.StatusCode !== 1) {
@@ -935,29 +932,7 @@ export default function Auth() {
                   {/* Student-specific fields */}
                   {signUpData.role === 'student' && (
                     <>
-                      <div>
-                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                          Institution *
-                        </label>
-                        <div className="relative">
-                          <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                          <input
-                            type="text"
-                            value={signUpData.institution || ''}
-                            onChange={(e) => setSignUpData({ ...signUpData, institution: e.target.value })}
-                            className={`w-full pl-11 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800 border ${
-                              hasError('institution')
-                                ? 'border-red-500'
-                                : 'border-slate-200 dark:border-slate-700'
-                            } rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500/20`}
-                            placeholder="SLIIT"
-                            disabled={isLoading}
-                          />
-                        </div>
-                        {hasError('institution') && (
-                          <p className="mt-1 text-xs text-red-600 dark:text-red-400">{getError('institution')}</p>
-                        )}
-                      </div>
+
 
                       {/* Year Selector */}
                       <div>

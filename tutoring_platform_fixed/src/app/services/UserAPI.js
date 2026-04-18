@@ -54,11 +54,11 @@ const handleResponse = async (res) => {
  * { "fullName": "John Doe", "email": "john@example.com",
  *   "phoneNumber": "+1234567890", "password": "Pass@123", "roleId": 3 }
  */
-export const registerUser = async ({ fullName, email, phoneNumber, password, roleId }) => {
+export const registerUser = async ({ fullName, email, phoneNumber, password, roleId, profileImage }) => {
   const res = await fetch(`${BASE_URL}/user/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ fullName, email, phoneNumber, password, roleId }),
+    body: JSON.stringify({ fullName, email, phoneNumber, password, roleId, profileImage }),
   });
   return handleResponse(res);
 };

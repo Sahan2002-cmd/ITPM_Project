@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Web;
@@ -12,6 +12,7 @@ namespace PeerLearningAndTutorialSystem.Models.RequestApiModels
         public string Email { get; set; }
         public string Password { get; set; }
         public int? RoleId { get; set; }
+        public string ProfileImage { get; set; }
 
         // Login
         // Email is reused above

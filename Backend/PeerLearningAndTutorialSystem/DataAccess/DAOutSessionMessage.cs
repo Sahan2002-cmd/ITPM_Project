@@ -238,12 +238,35 @@ namespace PeerLearningAndTutorialSystem.DataAccess
                                            .Project(m => m.SenderId).ToList();
                 var partnerIds = senderIds.Union(receiverIds).Distinct().ToList();
 
-                // If no conversations yet, return all active tutors
-                if (partnerIds.Count == 0)
+                // Always merge default partners
+                var currentUserRes = new DAUser().GetUserById(userId);
+                if (currentUserRes.StatusCode == 1 && currentUserRes.Data is UserModel currentUser)
                 {
-                    var tutors = new DAUser().GetAllTutors();
-                    if (tutors.StatusCode == 1 && tutors.Data is List<UserModel> tutorList)
-                        partnerIds = tutorList.Select(t => t.UserId).ToList();
+                    if (currentUser.RoleId == 3) // Student
+                    {
+                        var tutors = new DAUser().GetAllTutors();
+                        if (tutors.StatusCode == 1 && tutors.Data is List<UserModel> tutorList)
+                            partnerIds = partnerIds.Union(tutorList.Select(t => t.UserId)).Distinct().ToList();
+                    }
+                    else if (currentUser.RoleId == 2) // Tutor
+                    {
+                        var students = new DAUser().GetStudentsForTutor(userId);
+                        if (students.StatusCode == 1 && students.Data is List<UserModel> studentList)
+                            partnerIds = partnerIds.Union(studentList.Select(s => s.UserId)).Distinct().ToList();
+
+                        if (partnerIds.Count == 0)
+                        {
+                            var allStudents = new DAUser().GetAllStudents();
+                            if (allStudents.StatusCode == 1 && allStudents.Data is List<UserModel> stList)
+                                partnerIds = partnerIds.Union(stList.Select(s => s.UserId)).Distinct().ToList();
+                        }
+                    }
+                    else // Admin
+                    {
+                        var allUsers = new DAUser().GetAllUsers();
+                        if (allUsers.StatusCode == 1 && allUsers.Data is List<UserModel> uList)
+                            partnerIds = partnerIds.Union(uList.Where(u => u.UserId != userId).Select(u => u.UserId)).Distinct().ToList();
+                    }
                 }
                 return Response.Success(partnerIds);
             }

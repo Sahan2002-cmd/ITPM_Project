@@ -1,4 +1,4 @@
-﻿using BCrypt.Net;
+using BCrypt.Net;
 using MongoDB.Driver;
 using PeerLearningAndTutorialSystem.BusinessLayer;
 using PeerLearningAndTutorialSystem.DatabaseConnectivity;
@@ -165,7 +165,7 @@ namespace PeerLearningAndTutorialSystem.DataAccess
                     RoleName = request.RoleId == 1 ? "Admin" : (request.RoleId == 2 ? "Tutor" : "Student"),
                     Status = "Active",                     // ✅ Active immediately
                     IsEmailVerified = true,                // ✅ No OTP needed
-                    ProfileImage = null,
+                    ProfileImage = request.ProfileImage,
                     Center = request.Center,
                     Semester = (request.RoleId == 3) ? request.Semester : null
                 };
@@ -406,7 +406,8 @@ namespace PeerLearningAndTutorialSystem.DataAccess
                     user.FullName,
                     user.Email,
                     user.RoleName,
-                    user.RoleId
+                    user.RoleId,
+                    user.ProfileImage
                 }, "Login successful.");
             }
             catch (Exception ex) { return Response.Error(ex.Message); }
@@ -421,7 +422,7 @@ namespace PeerLearningAndTutorialSystem.DataAccess
                 if (existing != null)
                 {
                     string token = new JwtHelper().GenerateToken(existing);
-                    return Response.Success(new { token, existing.UserId, existing.FullName, existing.Email, existing.RoleName, existing.RoleId }, "Google login successful.");
+                    return Response.Success(new { token, existing.UserId, existing.FullName, existing.Email, existing.RoleName, existing.RoleId, existing.ProfileImage }, "Google login successful.");
                 }
 
                 var newUser = new UserModel
@@ -441,7 +442,7 @@ namespace PeerLearningAndTutorialSystem.DataAccess
                 _users.InsertOne(newUser);
 
                 string tokenNew = new JwtHelper().GenerateToken(newUser);
-                return Response.Success(new { token = tokenNew, newUser.UserId, newUser.FullName, newUser.Email, newUser.RoleName, newUser.RoleId }, "Google auto-registration successful.");
+                return Response.Success(new { token = tokenNew, newUser.UserId, newUser.FullName, newUser.Email, newUser.RoleName, newUser.RoleId, newUser.ProfileImage }, "Google auto-registration successful.");
             }
             catch (Exception ex) { return Response.Error(ex.Message); }
         }

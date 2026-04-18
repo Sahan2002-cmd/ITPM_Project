@@ -1,10 +1,13 @@
 import { useState, useEffect } from "react";
 import {
   FileText, Save, Check, Clock, BookOpen, Loader2,
-  AlertCircle, Lock, CheckCircle
+  AlertCircle, Lock, CheckCircle, Upload, Paperclip
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
-import { getSessionNote, submitSessionNote, editSessionNote } from "../services/Module_03_API";
+import {
+  getSessionNote, submitSessionNote, editSessionNote,
+  uploadFileResource, getFileResourcesByBooking
+} from "../services/Module_03_API";
 import { toast } from "sonner";
 
 const MIN_TOPICS = 10;
@@ -26,6 +29,10 @@ export default function SessionNotes() {
   const [noteCreatedAt, setNoteCreatedAt] = useState<string | null>(null);
   const [existsOnServer, setExistsOnServer] = useState(false);
 
+  // files / homework
+  const [files, setFiles] = useState<any[]>([]);
+  const [uploading, setUploading] = useState(false);
+
   // time window
   const isEditWindowOpen = () => {
     if (!noteCreatedAt) return true; // new note
@@ -40,6 +47,16 @@ export default function SessionNotes() {
     try {
       const res = await getSessionNote(bid);
       const note = res?.Data ?? res?.data ?? res;
+
+      // also load files
+      try {
+        const fres = await getFileResourcesByBooking(bid);
+        const fArr = Array.isArray(fres) ? fres : (fres?.Data ?? fres?.data ?? []);
+        setFiles(Array.isArray(fArr) ? fArr : []);
+      } catch (e) {
+        setFiles([]);
+      }
+
       if (note && (note.NoteId || note.noteId)) {
         setNoteId(note.NoteId ?? note.noteId);
         setTopicsCovered(note.TopicsCovered ?? note.topicsCovered ?? "");
@@ -63,6 +80,7 @@ export default function SessionNotes() {
     setNextSteps("");
     setNoteCreatedAt(null);
     setExistsOnServer(false);
+    setFiles([]);
   };
 
   useEffect(() => { if (bookingId) loadNote(); }, [bookingId]);
@@ -99,6 +117,27 @@ export default function SessionNotes() {
       toast.error(e.message || "Failed to save note");
     }
     finally { setSaving(false); }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !bookingId) return;
+
+    setUploading(true);
+    try {
+      await uploadFileResource(Number(bookingId), file);
+      toast.success("Homework uploaded successfully!");
+      // Reload files
+      const fres = await getFileResourcesByBooking(Number(bookingId));
+      const fArr = Array.isArray(fres) ? fres : (fres?.Data ?? fres?.data ?? []);
+      setFiles(Array.isArray(fArr) ? fArr : []);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to upload file");
+    } finally {
+      setUploading(false);
+      // reset input
+      e.target.value = '';
+    }
   };
 
   const canEdit = isTutor && isEditWindowOpen();
@@ -186,8 +225,8 @@ export default function SessionNotes() {
 
             {/* Homework */}
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-              <div className="px-5 py-4 border-b border-slate-100">
-                <h3 className="font-semibold text-slate-800">Homework</h3>
+              <div className="px-5 py-4 border-b border-slate-100 flex justify-between items-center">
+                <h3 className="font-semibold text-slate-800">Homework & Attachments</h3>
               </div>
               {canEdit ? (
                 <textarea value={homework} onChange={e => setHomework(e.target.value)}
@@ -199,6 +238,35 @@ export default function SessionNotes() {
                   {homework || <span className="text-slate-400 italic">No homework assigned.</span>}
                 </div>
               )}
+
+              {/* Uploaded Files Section */}
+              <div className="bg-slate-50 border-t border-slate-200 p-4">
+                <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Submitted Files</h4>
+                {files.length > 0 ? (
+                  <div className="space-y-2">
+                    {files.map(f => (
+                      <div key={f.fileId || f.FileId} className="flex items-center gap-3 bg-white p-3 rounded-lg border border-slate-200 text-sm cursor-pointer hover:border-violet-300 transition-colors"
+                           onClick={() => window.open(f.fileUrl || f.FileUrl, "_blank")}>
+                        <Paperclip className="w-4 h-4 text-violet-500 flex-shrink-0" />
+                        <span className="truncate flex-1 font-medium text-slate-700">{f.originalName || f.OriginalName || "Attached File"}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-400 italic mb-2">No files submitted yet.</p>
+                )}
+
+                {/* Upload Button visible for students when session note exists */}
+                {existsOnServer && !isTutor && (
+                  <div className="mt-4 pt-4 border-t border-slate-200">
+                    <input type="file" id="homework-upload" className="hidden" onChange={handleFileUpload} />
+                    <label htmlFor="homework-upload" className="flex items-center justify-center gap-2 w-full py-2.5 px-4 bg-white border-2 border-dashed border-violet-300 text-violet-600 rounded-xl hover:bg-violet-50 hover:border-violet-400 transition-colors cursor-pointer text-sm font-medium">
+                      {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                      {uploading ? "Uploading..." : "Submit Homework File"}
+                    </label>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Next Steps */}
