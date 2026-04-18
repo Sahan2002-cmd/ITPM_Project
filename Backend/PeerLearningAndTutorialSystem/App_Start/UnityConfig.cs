@@ -12,16 +12,8 @@ namespace PeerLearningAndTutorialSystem
         {
             var container = new UnityContainer();
 
-            // ── Module 0: Users ──────────────────────────────────────────
+            // Register interface → implementation
             container.RegisterType<IUser, DAUser>();
-
-            // ── Module 1: Tutor Profile & Availability ───────────────────
-            container.RegisterType<ITutorProfile, DATutorProfile>();
-            container.RegisterType<IAvailability, DAAvailability>();
-
-            // ── Module 2: Session Booking & Notifications ────────────────
-            container.RegisterType<IBooking,      DABooking>();
-            container.RegisterType<INotification, DANotification>();
 
             // Unity.AspNet.WebApi resolver — fixes CS0266
             GlobalConfiguration.Configuration.DependencyResolver =

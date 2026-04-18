@@ -1,17 +1,12 @@
-﻿using PeerLearningAndTutorialSystem.Models;
-using PeerLearningAndTutorialSystem.Models.RequestApiModels;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
 
 namespace PeerLearningAndTutorialSystem.Interfaces
 {
-    public interface INotification
+    internal interface INotification
     {
-        /// <summary>Persist a new notification record in the DB.</summary>
-        Response CreateNotification(NotificationRequestApi request);
-
-        /// <summary>Returns all notifications for a user, newest first.</summary>
-        Response GetByUser(int userId);
-
-        /// <summary>Marks a single notification document as read.</summary>
-        Response MarkAsRead(string notificationId);
     }
 }
