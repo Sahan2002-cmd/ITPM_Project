@@ -80,12 +80,20 @@ export default function Chat() {
   /* ── load partners ── */
   const loadPartners = useCallback(async () => {
     try {
-      const ids: number[] = await getConversationPartners();
+      const res = await getConversationPartners();
+      const ids: number[] = Array.isArray(res) ? res : (res?.Data ?? res?.data ?? []);
       const list: Partner[] = [];
       for (const id of ids) {
         try {
-          const u = await getBasicUserInfo(id);
-          list.push({ userId: u.userId, fullName: u.fullName, email: u.email, roleName: u.roleName, profileImage: u.profileImage });
+          const uResp = await getBasicUserInfo(id);
+          const u = uResp?.Data ?? uResp?.data ?? uResp;
+          list.push({ 
+            userId: u.userId ?? u.UserId, 
+            fullName: u.fullName ?? u.FullName, 
+            email: u.email ?? u.Email, 
+            roleName: u.roleName ?? u.RoleName, 
+            profileImage: u.profileImage ?? u.ProfileImage 
+          });
         } catch { }
       }
       setPartners(list);
