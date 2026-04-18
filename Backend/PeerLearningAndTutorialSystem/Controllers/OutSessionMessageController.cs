@@ -1,4 +1,4 @@
-﻿using MongoDB.Driver;
+using MongoDB.Driver;
 using PeerLearningAndTutorialSystem.BusinessLayer;
 using PeerLearningAndTutorialSystem.DataAccess;
 using PeerLearningAndTutorialSystem.DatabaseConnectivity;
@@ -90,44 +90,21 @@ namespace PeerLearningAndTutorialSystem.Controllers
         //  POST  /api/outsessionmessage/send
         //  Sends a new out-session message (before or after session).
         // ════════════════════════════════════════════════════════════════
-        // 002 – SEND MESSAGE
-        public Response SendMessage(OutSessionMessageRequestApi request)
+        [HttpPost]
+        [Route("send")]
+        public IHttpActionResult SendMessage([FromBody] OutSessionMessageRequestApi request)
         {
+            int callerId = GetCallerId();
+            if (callerId == 0)
+                return Content(HttpStatusCode.Unauthorized, Response.Fail("Unauthorized. Please log in."));
 
-            try
-            {
-                if (string.IsNullOrWhiteSpace(request.MessageText))
-                    return Response.Fail("Message text cannot be empty.");
+            if (request == null)
+                return BadRequest("Request body is required.");
 
-                // Allow direct chat with bookingId = -1 (no session check)
-                if (request.BookingId != -1)
-                {
-                    var booking = _bookings.Find(b => b.BookingId == request.BookingId).FirstOrDefault();
-                    if (booking == null || !(booking.Status == "Completed" || booking.Status == "Confirmed" || booking.Status == "Pending"))
-                        return Response.Fail("Out-session messages allowed only for Completed, Confirmed, or Pending sessions.");
-                }
+            // Ensure senderId matches the JWT caller
+            request.SenderId = callerId;
 
-                var msg = new OutSessionMessageModel
-                {
-                    OutMessageId = CounterHelper.GetNextSequence("outMessageId"),
-                    BookingId = request.BookingId.Value,
-                    SenderId = request.SenderId.Value,
-                    ReceiverId = request.ReceiverId.Value,
-                    MessageText = request.MessageText.Trim(),
-                    IsRead = false,
-                    EditedAt = null,
-                    IsDeleted = false,
-                    DeletedAt = null,
-                    AdminDeleteReason = null,
-                    CreatedBy = request.SenderId,
-                    CreatedAt = NowIso(),
-                    UpdatedBy = null,
-                    UpdatedAt = null
-                };
-                _messages.InsertOne(msg);
-                return Response.Success(null, "Message sent.");
-            }
-            catch (Exception ex) { return Response.Error(ex.Message); }
+            return Ok(_da.SendMessage(request));
         }
 
         [HttpGet]

@@ -1,4 +1,4 @@
-﻿using PeerLearningAndTutorialSystem.BusinessLayer;
+using PeerLearningAndTutorialSystem.BusinessLayer;
 using PeerLearningAndTutorialSystem.DataAccess;
 using PeerLearningAndTutorialSystem.Models;
 using PeerLearningAndTutorialSystem.Models.RequestApiModels;
@@ -47,7 +47,7 @@ namespace PeerLearningAndTutorialSystem.Controllers
         private readonly DAFileResource _da = new DAFileResource();
 
         private readonly string[] _allowedTypes = { "pdf", "docx", "png", "jpg", "jpeg" };
-        private const long MaxBytes = 5 * 1024 * 1024;
+        private const long MaxBytes = 20 * 1024 * 1024;
 
         // ── JWT helpers ───────────────────────────────────────────────────
         private int GetCallerId()
@@ -131,9 +131,12 @@ namespace PeerLearningAndTutorialSystem.Controllers
             byte[] fileBytes = await filePart.ReadAsByteArrayAsync();
 
             if (fileBytes.Length > MaxBytes)
-                return Content(HttpStatusCode.BadRequest, Response.Fail("File exceeds 5MB limit."));
+                return Content(HttpStatusCode.BadRequest, Response.Fail("File exceeds 20MB limit."));
 
             string originalName = filePart.Headers.ContentDisposition.FileName?.Trim('"') ?? "file";
+
+            if (originalName.Length > 100)
+                return Content(HttpStatusCode.BadRequest, Response.Fail("File name cannot exceed 100 characters."));
             string ext = Path.GetExtension(originalName).TrimStart('.').ToLower();
 
             if (!System.Array.Exists(_allowedTypes, t => t == ext))
@@ -194,6 +197,41 @@ namespace PeerLearningAndTutorialSystem.Controllers
                 return Content(HttpStatusCode.Unauthorized, Response.Fail("Unauthorized. Please log in."));
 
             return Ok(_da.DeleteFile(id, callerId));
+        }
+
+        // ════════════════════════════════════════════════════════════════
+        //  GET  /api/fileresource/download/{id}
+        //  Serves the physical file for download.
+        // ════════════════════════════════════════════════════════════════
+        [HttpGet]
+        [Route("download/{id:int}")]
+        public IHttpActionResult DownloadFile(int id)
+        {
+            int callerId = GetCallerId();
+            if (callerId == 0)
+                return Content(HttpStatusCode.Unauthorized, Response.Fail("Unauthorized. Please log in."));
+
+            var result = _da.GetFileById(id);
+            if (result.StatusCode != 1 || result.Data == null)
+                return Content(HttpStatusCode.NotFound, Response.Fail("File not found."));
+
+            var file = result.Data as FileResourceModel;
+            string physicalPath = HttpContext.Current.Server.MapPath("~" + file.FilePath);
+
+            if (!System.IO.File.Exists(physicalPath))
+                return Content(HttpStatusCode.NotFound, Response.Fail("Physical file not found on server."));
+
+            byte[] fileBytes = System.IO.File.ReadAllBytes(physicalPath);
+            var response = new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new ByteArrayContent(fileBytes)
+            };
+            response.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/octet-stream");
+            response.Content.Headers.ContentDisposition = new System.Net.Http.Headers.ContentDispositionHeaderValue("attachment")
+            {
+                FileName = file.FileName
+            };
+            return ResponseMessage(response);
         }
     }
 }

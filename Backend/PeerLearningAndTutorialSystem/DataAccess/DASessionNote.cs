@@ -1,4 +1,4 @@
-﻿using MongoDB.Driver;
+using MongoDB.Driver;
 using PeerLearningAndTutorialSystem.BusinessLayer;
 using PeerLearningAndTutorialSystem.DatabaseConnectivity;
 using PeerLearningAndTutorialSystem.Interfaces;
@@ -44,6 +44,8 @@ namespace PeerLearningAndTutorialSystem.DataAccess
             {
                 if (string.IsNullOrWhiteSpace(request.TopicsCovered))
                     return Response.Fail("Topics covered is required.");
+                if (request.TopicsCovered.Trim().Length < 10)
+                    return Response.Fail("Topics covered must be at least 10 characters.");
 
                 var booking = _bookings.Find(b => b.BookingId == request.BookingId).FirstOrDefault();
                 if (booking == null) return Response.Fail("Booking not found.");
@@ -90,7 +92,11 @@ namespace PeerLearningAndTutorialSystem.DataAccess
 
                 var updates = new List<UpdateDefinition<SessionNoteModel>>();
                 if (!string.IsNullOrWhiteSpace(request.TopicsCovered))
+                {
+                    if (request.TopicsCovered.Trim().Length < 10)
+                        return Response.Fail("Topics covered must be at least 10 characters.");
                     updates.Add(Builders<SessionNoteModel>.Update.Set(n => n.TopicsCovered, request.TopicsCovered.Trim()));
+                }
                 if (request.Homework != null)
                     updates.Add(Builders<SessionNoteModel>.Update.Set(n => n.Homework, request.Homework.Trim()));
                 if (request.NextSteps != null)
