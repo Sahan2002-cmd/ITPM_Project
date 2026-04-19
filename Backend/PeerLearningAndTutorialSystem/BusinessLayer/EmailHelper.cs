@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Net;
 using System.Net.Mail;
 
@@ -192,6 +192,23 @@ namespace PeerLearningAndTutorialSystem.BusinessLayer
             <p>Your <strong>PeerLearn</strong> account has been successfully created.</p>
             <p>You can now <strong>log in</strong> using your email and password.</p>
             <p>If you did not create this account, please contact support immediately.</p>
+            <hr/>
+            <small style='color:#888;'>PeerLearning &amp; Tutorial System — SLIIT</small>
+        </div>";
+            Send(toEmail, subject, body);
+        }
+
+        /// <summary>
+        /// Sends an email notifying the tutor that their 7-day registration window has expired.
+        /// </summary>
+        public void SendRegistrationExpiredEmail(string toEmail, string fullName)
+        {
+            string subject = "Tutor Registration Expired – PeerLearn";
+            string body = $@"
+        <div style='font-family:Arial,sans-serif;max-width:600px;margin:auto;'>
+            <h2 style='color:#e74c3c;'>Registration Expired, {fullName}</h2>
+            <p>Your <strong>PeerLearn</strong> account registration has expired because the 7-day approval window passed without admin verification.</p>
+            <p>If you wish to become a tutor, please <strong>re-register</strong> to start a new application.</p>
             <hr/>
             <small style='color:#888;'>PeerLearning &amp; Tutorial System — SLIIT</small>
         </div>";

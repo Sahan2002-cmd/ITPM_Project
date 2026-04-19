@@ -593,6 +593,74 @@ namespace PeerLearningAndTutorialSystem.DataAccess
             }
             catch (Exception ex) { return Response.Error(ex.Message); }
         }
+        // ─────────────────────────────────────────────────────────────────
+        // 016 – GET PENDING TUTOR SIGNUPS (Admin only)
+        // Returns tutors who have registered but are awaiting admin verification.
+        // Status == "PendingApproval" is set during tutor registration.
+        public Response GetPendingTutorSignups()
+        {
+            try
+            {
+                var pending = _users
+                    .Find(u => u.RoleId == 2 && u.Status == "PendingApproval")
+                    .ToList()
+                    .Select(u => new
+                    {
+                        u.UserId,
+                        u.FullName,
+                        u.Email,
+                        u.PhoneNumber,
+                        u.Status,
+                        u.Center,
+                        u.CreatedAt,
+                        u.ApprovedAt,
+                        // Surface how many days remain in the 7-day window
+                        DaysRemaining = u.CreatedAt != null
+                            ? Math.Max(0, 7 - (int)(DateTime.UtcNow - DateTime.Parse(u.CreatedAt)).TotalDays)
+                            : 7
+                    })
+                    .ToList();
+
+                return Response.Success(pending);
+            }
+            catch (Exception ex) { return Response.Error(ex.Message); }
+        }
+
+        // ─────────────────────────────────────────────────────────────────
+        // 017 – EXPIRE TUTOR REGISTRATION
+        // Called when a tutor's 7-day approval window has passed.
+        // Sets Status → "Expired" so the account cannot log in.
+        // The tutor must re-register if they want to reapply.
+        public Response ExpireRegistration(int userId)
+        {
+            try
+            {
+                var user = _users.Find(u => u.UserId == userId).FirstOrDefault();
+                if (user == null) return Response.Fail("User not found.");
+
+                if (user.RoleId != 2)
+                    return Response.Fail("Only tutor accounts can be expired.");
+
+                if (user.Status != "PendingApproval")
+                    return Response.Fail($"Account is already '{user.Status}' — only PendingApproval accounts can be expired.");
+
+                _users.UpdateOne(u => u.UserId == userId,
+                    Builders<UserModel>.Update
+                        .Set(u => u.Status, "Expired")
+                        .Set(u => u.UpdatedAt, ToIsoString(DateTime.UtcNow)));
+
+                // Notify the tutor that their registration window has closed
+                try
+                {
+                    new EmailHelper().SendRegistrationExpiredEmail(user.Email, user.FullName);
+                }
+                catch { /* Don't let email failure block the status update */ }
+
+                return Response.Success(null, "Tutor registration expired. They must re-register.");
+            }
+            catch (Exception ex) { return Response.Error(ex.Message); }
+        }
+
         // Helper
         private string GetUserEmailById(int userId)
         {
