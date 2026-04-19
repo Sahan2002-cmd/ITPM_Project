@@ -168,6 +168,19 @@ export const updateTutorProfile = async (tutorId, updateData) => {
 };
 
 /**
+ * Admin-only: Approve a tutor profile (status → "Active", IsVerified → true).
+ * Also sends an in-app notification to the tutor via the backend.
+ * @param {string} profileId - MongoDB ObjectId of the tutor profile
+ */
+export const approveTutorProfile = async (profileId) => {
+  const res = await fetch(`${BASE_URL}/tutorprofile/approve/${profileId}`, {
+    method: "PUT",
+    headers: getAuthHeaders(),
+  });
+  return handleResponse(res);
+};
+
+/**
  * Admin-only: Update the verification status of a tutor profile.
  * @param {number} tutorId
  * @param {"Active" | "Pending Verification" | "Suspended"} status

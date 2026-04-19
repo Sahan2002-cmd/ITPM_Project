@@ -1,4 +1,4 @@
-﻿using MongoDB.Bson;
+using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
 using MongoDB.Bson.Serialization.Serializers;
 using MongoDB.Driver;
@@ -90,6 +90,27 @@ namespace PeerLearningAndTutorialSystem
                 cm.SetIdMember(cm.GetMemberMap(c => c.BookingId));
                 cm.GetMemberMap(c => c.BookingId).SetSerializer(new Int32Serializer(BsonType.Int32));
             });
+
+            // Module 4 — Rating & Analytics
+            BsonClassMap.RegisterClassMap<RatingModel>(cm =>
+            {
+                cm.AutoMap();
+                cm.SetIdMember(cm.GetMemberMap(c => c.RatingId));
+                cm.GetMemberMap(c => c.RatingId).SetSerializer(new Int32Serializer(BsonType.Int32));
+                cm.GetMemberMap(c => c.CreatedAt).SetSerializer(new StringSerializer(BsonType.String));
+                cm.GetMemberMap(c => c.UpdatedAt).SetSerializer(new StringSerializer(BsonType.String));
+            });
+
+            BsonClassMap.RegisterClassMap<StudentEvaluationModel>(cm =>
+            {
+                cm.AutoMap();
+                cm.SetIdMember(cm.GetMemberMap(c => c.EvaluationId));
+                cm.GetMemberMap(c => c.EvaluationId).SetSerializer(new Int32Serializer(BsonType.Int32));
+                cm.GetMemberMap(c => c.CreatedAt).SetSerializer(new StringSerializer(BsonType.String));
+                cm.GetMemberMap(c => c.UpdatedAt).SetSerializer(new StringSerializer(BsonType.String));
+            });
+
+            // Seed is triggered manually via POST /api/seed/run — not on startup.
         }
     }
 }

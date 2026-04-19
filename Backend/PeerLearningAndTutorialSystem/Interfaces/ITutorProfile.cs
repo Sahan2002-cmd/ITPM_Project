@@ -1,12 +1,32 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using PeerLearningAndTutorialSystem.Models;
+using PeerLearningAndTutorialSystem.Models.RequestApiModels;
 
 namespace PeerLearningAndTutorialSystem.Interfaces
 {
-    internal interface ITutorProfile
+    public interface ITutorProfile
     {
+        /// <summary>Persist a new tutor profile. Status is forced to "Pending Verification" by the caller.</summary>
+        Response CreateProfile(TutorProfileRequestApi request);
+
+        /// <summary>Returns all profiles with Status == "Active".</summary>
+        Response GetAllActiveVerified();
+
+        /// <summary>Returns a single tutor profile by its ObjectId.</summary>
+        Response GetById(string id);
+
+        /// <summary>Returns a single tutor profile by the user's integer UserId.</summary>
+        Response GetByUserId(int userId);
+
+        /// <summary>Returns all tutor profiles regardless of status (Admin only).</summary>
+        Response GetAllProfilesAdmin();
+
+        /// <summary>Admin approval: sets Status to "Active" and IsVerified to true.</summary>
+        Response ApproveProfile(string id);
+
+        /// <summary>Partial update of mutable fields (Bio, Subjects, HourlyRate, etc.).</summary>
+        Response UpdateProfile(string id, TutorProfileRequestApi request);
+
+        /// <summary>Soft-delete: sets Status to "Inactive" or "Suspended".</summary>
+        Response SoftDelete(string id, string newStatus);
     }
 }

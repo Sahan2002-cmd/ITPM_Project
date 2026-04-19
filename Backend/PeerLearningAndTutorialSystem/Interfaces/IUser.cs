@@ -1,4 +1,4 @@
-﻿using PeerLearningAndTutorialSystem.Models;
+using PeerLearningAndTutorialSystem.Models;
 using PeerLearningAndTutorialSystem.Models.RequestApiModels;
 
 namespace PeerLearningAndTutorialSystem.Interfaces
@@ -14,6 +14,10 @@ namespace PeerLearningAndTutorialSystem.Interfaces
         Response GetUserById(int userId);
         Response GetAllTutors();
         Response GetStudentsForTutor(int tutorId);
+        /// <summary>Returns Tutor users whose signup is awaiting admin approval (Status == "PendingApproval").</summary>
+        Response GetPendingTutorSignups();
+        /// <summary>Expires a tutor account that missed the 7-day registration deadline.</summary>
+        Response ExpireRegistration(int userId);
 
         // ── Write ────────────────────────────────────────────────────────
         Response Register(UserRequestApi request);

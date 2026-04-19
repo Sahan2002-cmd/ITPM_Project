@@ -310,3 +310,34 @@ export const resetPassword = async ({ email, otpCode, newPassword }) => {
   });
   return handleResponse(res);
 };
+
+// ══════════════════════════════════════════════════════════
+// TUTOR APPROVAL WORKFLOW
+// ══════════════════════════════════════════════════════════
+
+/**
+ * GET /user/pending-tutors
+ * Admin only: Fetch tutor user accounts with Status == "PendingApproval".
+ * Returns user records (no password hashes).
+ */
+export const getPendingTutorSignups = async () => {
+  const res = await fetch(`${BASE_URL}/user/pending-tutors`, {
+    headers: getAuthHeaders(),
+  });
+  return handleResponse(res);
+};
+
+/**
+ * PUT /user/expire-registration/{userId}
+ * Called by the frontend when a tutor's 7-day registration window expires.
+ * Admin or the tutor themselves can call this.
+ *
+ * @param {number} userId
+ */
+export const expireRegistration = async (userId) => {
+  const res = await fetch(`${BASE_URL}/user/expire-registration/${userId}`, {
+    method: "PUT",
+    headers: getAuthHeaders(),
+  });
+  return handleResponse(res);
+};
