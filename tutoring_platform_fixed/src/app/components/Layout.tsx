@@ -4,7 +4,7 @@ import {
   BookOpen, Calendar, MessageSquare, Upload, FileText, Library,
   LayoutDashboard, Video, Shield, Menu, X,
   GraduationCap, Bell, Search, Settings, LogOut,
-  BarChart3, Clock, Play, Sun, Moon, ChevronRight, Users
+  BarChart3, Clock, Play, Sun, Moon, ChevronRight, Users, UserCheck
 } from "lucide-react";
 import { TUTOR_IMAGES } from "../data/mockData";
 import { useAuth } from "../contexts/AuthContext";
@@ -82,10 +82,11 @@ const NAV_CONFIG = {
       {
         label: "Administration",
         items: [
-          { to: "/admin/analytics",  icon: BarChart3, label: "Analytics Panel" },
-          { to: "/admin/moderation", icon: Shield,    label: "Moderation" },
-          { to: "/admin/users",      icon: Users,     label: "User Management" },
-          { to: "/admin/reports",    icon: FileText,  label: "Reports" },
+          { to: "/admin/analytics",      icon: BarChart3,  label: "Analytics Panel" },
+          { to: "/admin/moderation",     icon: Shield,     label: "Moderation" },
+          { to: "/admin/tutor-approval", icon: UserCheck,  label: "Tutor Approval" },
+          { to: "/admin/users",          icon: Users,      label: "User Management" },
+          { to: "/admin/reports",        icon: FileText,   label: "Reports" },
         ],
       },
     ],

@@ -56,6 +56,7 @@ export const router = createBrowserRouter([
       { path: "recordings/:id", element: <RoleRoute roles={["student"]}><RecordingPlayback /></RoleRoute> },
       { path: "profile",      element: <RoleRoute roles={["student"]}><UserProfile /></RoleRoute> },
       { path: "browse",       element: <RoleRoute roles={["student"]}><BrowseTutors /></RoleRoute> },
+      { path: "tutor-profile/:id", element: <RoleRoute roles={["student"]}><TutorProfile /></RoleRoute> },
       { path: "booking/:tutorId", element: <RoleRoute roles={["student"]}><BookingForm /></RoleRoute> },
       { path: "payment",               element: <RoleRoute roles={["student"]}><PaymentGateway /></RoleRoute> },
       { path: "booking-confirmation", element: <RoleRoute roles={["student"]}><BookingConfirmation /></RoleRoute> },
