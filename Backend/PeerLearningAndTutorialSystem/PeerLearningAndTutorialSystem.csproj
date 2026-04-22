@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="packages\EntityFramework.6.5.1\build\EntityFramework.props" Condition="Exists('packages\EntityFramework.6.5.1\build\EntityFramework.props')" />
   <Import Project="packages\Microsoft.CodeDom.Providers.DotNetCompilerPlatform.2.0.1\build\net46\Microsoft.CodeDom.Providers.DotNetCompilerPlatform.props" Condition="Exists('packages\Microsoft.CodeDom.Providers.DotNetCompilerPlatform.2.0.1\build\net46\Microsoft.CodeDom.Providers.DotNetCompilerPlatform.props')" />
@@ -366,14 +366,6 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Controllers\RecordingController.cs" />
-    <Compile Include="Controllers\SeedController.cs" />
-    <Compile Include="DataAccess\DARecording.cs" />
-    <Compile Include="Interfaces\IAvailability.cs" />
-    <Compile Include="Interfaces\IRecording.cs" />
-    <Compile Include="Models\RecordingModel.cs" />
-    <Compile Include="Models\RequestApiModels\RecordingRequestApi.cs" />
-    <Compile Include="SeedData.cs" />
     <Compile Include="App_Start\BundleConfig.cs" />
     <Compile Include="App_Start\WebApiConfig.cs.cs" />
     <Compile Include="App_Start\FilterConfig.cs" />
@@ -395,8 +387,10 @@
     <Compile Include="Controllers\OutSessionMessageController.cs" />
     <Compile Include="Controllers\PaymentController.cs" />
     <Compile Include="Controllers\RatingController.cs" />
+    <Compile Include="Controllers\RecordingController.cs" />
     <Compile Include="Controllers\AdminReportController.cs" />
     <Compile Include="Controllers\SessionNoteController.cs" />
+    <Compile Include="Controllers\SeedController.cs" />
     <Compile Include="Controllers\TutorProfileController.cs" />
     <Compile Include="Controllers\UserController.cs" />
     <Compile Include="DataAccess\DAAnalytics.cs" />
@@ -409,16 +403,19 @@
     <Compile Include="DataAccess\DAOutSessionMessage.cs" />
     <Compile Include="DataAccess\DAPayment.cs" />
     <Compile Include="DataAccess\DARating.cs" />
+    <Compile Include="DataAccess\DARecording.cs" />
     <Compile Include="DataAccess\DASessionNote.cs" />
     <Compile Include="DataAccess\DATutorProfile.cs" />
     <Compile Include="DataAccess\DAUser.cs" />
     <Compile Include="DatabaseConnectivity\CounterHelper.cs" />
     <Compile Include="DatabaseConnectivity\MongoDBContext.cs" />
+    <Compile Include="SeedData.cs" />
     <Compile Include="Global.asax.cs">
       <DependentUpon>Global.asax</DependentUpon>
     </Compile>
     <Compile Include="Hubs\ChatHub.cs" />
     <Compile Include="Interfaces\IAnalytics.cs" />
+    <Compile Include="Interfaces\IAvailability.cs" />
     <Compile Include="Interfaces\IBooking.cs" />
     <Compile Include="Interfaces\IDashboard.cs" />
     <Compile Include="Interfaces\IFileResource.cs" />
@@ -427,6 +424,7 @@
     <Compile Include="Interfaces\IOutSessionMessage.cs" />
     <Compile Include="Interfaces\IPayment.cs" />
     <Compile Include="Interfaces\IRating.cs" />
+    <Compile Include="Interfaces\IRecording.cs" />
     <Compile Include="Interfaces\ISessionNote.cs" />
     <Compile Include="Interfaces\ITutorProfile.cs" />
     <Compile Include="Interfaces\IUser.cs" />
@@ -441,6 +439,7 @@
     <Compile Include="Models\PaymentModel.cs" />
     <Compile Include="Models\ProcedureDBModel.cs" />
     <Compile Include="Models\RatingModel.cs" />
+    <Compile Include="Models\RecordingModel.cs" />
     <Compile Include="Models\RequestApiModels\AnalyticsRequestApi.cs" />
     <Compile Include="Models\RequestApiModels\AvailabilityRequestApi.cs" />
     <Compile Include="Models\RequestApiModels\BookingRequestApi.cs" />
@@ -450,8 +449,8 @@
     <Compile Include="Models\RequestApiModels\NotificationRequestApi.cs" />
     <Compile Include="Models\RequestApiModels\OutSessionMessageRequestApi.cs" />
     <Compile Include="Models\RequestApiModels\PaymentRequestApi.cs" />
-    <Compile Include="Models\RequestApiModels\ProfileImageRequest.cs" />
     <Compile Include="Models\RequestApiModels\RatingRequestApi.cs" />
+    <Compile Include="Models\RequestApiModels\RecordingRequestApi.cs" />
     <Compile Include="Models\RequestApiModels\SessionNoteRequestApi.cs" />
     <Compile Include="Models\RequestApiModels\TutorProfileRequestApi.cs" />
     <Compile Include="Models\RequestApiModels\TutorSubjectRequestApi.cs" />
@@ -526,10 +525,7 @@
     <Folder Include="Views\Booking\" />
     <Folder Include="Views\Dashboard\" />
     <Folder Include="Views\FileResource\" />
-    <Folder Include="Views\flag\" />
     <Folder Include="Views\InSessionMessage\" />
-    <Folder Include="Views\meeting\" />
-    <Folder Include="Views\note\" />
     <Folder Include="Views\Notification\" />
     <Folder Include="Views\OutSessionMessage\" />
     <Folder Include="Views\Payment\" />

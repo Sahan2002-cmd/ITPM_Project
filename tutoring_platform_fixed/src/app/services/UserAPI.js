@@ -24,7 +24,7 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
-const BASE_URL = "https://localhost:44331/api";
+const BASE_URL = "http://localhost:55708/api";
 
 const getAuthHeaders = () => {
   const token = localStorage.getItem("token");
@@ -54,11 +54,11 @@ const handleResponse = async (res) => {
  * { "fullName": "John Doe", "email": "john@example.com",
  *   "phoneNumber": "+1234567890", "password": "Pass@123", "roleId": 3 }
  */
-export const registerUser = async ({ fullName, email, phoneNumber, password, roleId, profileImage }) => {
+export const registerUser = async ({ fullName, email, phoneNumber, password, roleId }) => {
   const res = await fetch(`${BASE_URL}/user/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ fullName, email, phoneNumber, password, roleId, profileImage }),
+    body: JSON.stringify({ fullName, email, phoneNumber, password, roleId }),
   });
   return handleResponse(res);
 };

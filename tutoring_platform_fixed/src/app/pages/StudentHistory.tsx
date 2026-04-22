@@ -7,6 +7,7 @@ import { getAllTutors } from "../services/Module_01_API";
 
 type Booking = {
   Id: string;
+  BookingId: number;
   TutorProfileId: string;
   TutorId: number;
   StudentId: number;
@@ -104,7 +105,7 @@ export default function StudentHistory() {
     setCancelError("");
     setCancellingId(bookingId);
     try {
-      const res = await cancelBooking(bookingId);
+      const res = await cancelBooking(bookingId, user?.userId as number);
       if (res?.StatusCode === 1) {
         await fetchBookings();
       } else {
@@ -122,7 +123,35 @@ export default function StudentHistory() {
           <h1 className="text-2xl font-bold text-slate-900">Booking History</h1>
           <p className="text-slate-500 mt-1">Track all your tutoring sessions</p>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">
+        <button
+          onClick={() => {
+            if (bookings.length === 0) return;
+            const rows = [
+              ["Booking ID", "Tutor", "Subject", "Date", "Start Time", "End Time", "Status"],
+              ...bookings.map(b => {
+                const tutor = tutorMap.get(b.TutorProfileId);
+                return [
+                  b.BookingId ?? b.Id ?? "",
+                  tutor?.FullName ?? "Unknown Tutor",
+                  tutor?.SubjectsTaught?.[0] ?? "Session",
+                  toSlstDateStr(b.SessionDate),
+                  toSlstTime(b.StartTime),
+                  toSlstTime(b.EndTime),
+                  b.Status,
+                ];
+              }),
+            ];
+            const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+            const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `booking-history-${new Date().toISOString().slice(0, 10)}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+          }}
+          className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+        >
           <Download className="w-4 h-4" /> Export
         </button>
       </div>

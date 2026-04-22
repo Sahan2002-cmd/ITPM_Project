@@ -2,10 +2,11 @@ import {
   BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from "recharts";
-import { Users, DollarSign, BookOpen, Star, AlertTriangle, Shield, UserPlus, ArrowUpRight } from "lucide-react";
+import { Users, DollarSign, BookOpen, Star, AlertTriangle, Shield, UserPlus, ArrowUpRight, UserCheck } from "lucide-react";
 import { Link } from "react-router";
 import { useState, useEffect } from "react";
 import { getAnalyticsSummary, getSubjectPopularity, getTopRatedTutors, getStudentEngagement, getPendingFeedback } from "../services/Module_04_API";
+import { getAllTutorsAdmin } from "../services/Module_01_API";
 
 const CHART_COLORS = ["#7c3aed", "#0ea5e9", "#10b981", "#f59e0b", "#e11d48", "#6366f1"];
 
@@ -27,6 +28,7 @@ export default function AdminAnalytics() {
   const [topTutors, setTopTutors] = useState<TopTutor[]>([]);
   const [engagement, setEngagement] = useState<EngagementItem[]>([]);
   const [pendingRatings, setPendingRatings] = useState<PendingRating[]>([]);
+  const [pendingTutorCount, setPendingTutorCount] = useState(0);
   const [showAddAdmin, setShowAddAdmin] = useState(false);
   const [newAdmin, setNewAdmin] = useState({ fullName: '', email: '', employeeId: '', department: '', password: '' });
   const [adminAdded, setAdminAdded] = useState(false);
@@ -34,18 +36,23 @@ export default function AdminAnalytics() {
   useEffect(() => {
     const fetchAll = async () => {
       try {
-        const [sumRes, subRes, tutorRes, engRes, pendingRes] = await Promise.all([
+        const [sumRes, subRes, tutorRes, engRes, pendingRes, allTutorsRes] = await Promise.all([
           getAnalyticsSummary(),
           getSubjectPopularity(),
           getTopRatedTutors(5),
           getStudentEngagement(),
           getPendingFeedback(),
+          getAllTutorsAdmin(),
         ]);
         if (sumRes?.StatusCode === 1) setSummary(sumRes.Data);
         if (subRes?.StatusCode === 1) setSubjects(Array.isArray(subRes.Data) ? subRes.Data : []);
         if (tutorRes?.StatusCode === 1) setTopTutors(Array.isArray(tutorRes.Data) ? tutorRes.Data : []);
         if (engRes?.StatusCode === 1) setEngagement(Array.isArray(engRes.Data) ? engRes.Data : []);
         if (pendingRes?.StatusCode === 1) setPendingRatings(Array.isArray(pendingRes.Data) ? pendingRes.Data : []);
+        if (allTutorsRes?.StatusCode === 1) {
+          const all = Array.isArray(allTutorsRes.Data) ? allTutorsRes.Data : [];
+          setPendingTutorCount(all.filter((t: { Status: string }) => t.Status === "Pending Verification").length);
+        }
       } catch {
         // show empty state
       } finally {
@@ -165,6 +172,14 @@ export default function AdminAnalytics() {
           <button onClick={() => setShowAddAdmin(true)} className="flex items-center gap-2 px-4 py-2 bg-violet-600 text-white rounded-xl text-sm font-medium hover:bg-violet-700 transition-colors">
             <UserPlus className="w-4 h-4" /> Add Admin
           </button>
+          <Link to="/admin/tutor-approval" className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-xl text-sm font-medium hover:bg-amber-600 transition-colors relative">
+            <UserCheck className="w-4 h-4" /> Tutor Approval
+            {pendingTutorCount > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center justify-center">
+                {pendingTutorCount}
+              </span>
+            )}
+          </Link>
           <Link to="/admin/moderation" className="flex items-center gap-2 px-4 py-2 bg-rose-600 text-white rounded-xl text-sm font-medium hover:bg-rose-700 transition-colors">
             <Shield className="w-4 h-4" /> Moderation
           </Link>

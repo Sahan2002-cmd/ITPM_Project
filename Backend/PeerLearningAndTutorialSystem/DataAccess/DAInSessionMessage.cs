@@ -1,4 +1,4 @@
-using MongoDB.Driver;
+﻿using MongoDB.Driver;
 using PeerLearningAndTutorialSystem.BusinessLayer;
 using PeerLearningAndTutorialSystem.DatabaseConnectivity;
 using PeerLearningAndTutorialSystem.Interfaces;
@@ -45,8 +45,6 @@ namespace PeerLearningAndTutorialSystem.DataAccess
             {
                 if (string.IsNullOrWhiteSpace(request.MessageText))
                     return Response.Fail("Message text cannot be empty.");
-                if (request.MessageText.Trim().Length > 2000)
-                    return Response.Fail("Message text cannot exceed 2000 characters.");
 
                 // Verify session is Active
                 var booking = _bookings.Find(b => b.BookingId == request.BookingId).FirstOrDefault();
@@ -82,11 +80,6 @@ namespace PeerLearningAndTutorialSystem.DataAccess
                 var msg = _messages.Find(m => m.MessageId == request.MessageId).FirstOrDefault();
                 if (msg == null) return Response.Fail("Message not found.");
                 if (msg.SenderId != callerId) return Response.Fail("You can only edit your own messages.");
-
-                if (string.IsNullOrWhiteSpace(request.MessageText))
-                    return Response.Fail("Message text cannot be empty.");
-                if (request.MessageText.Trim().Length > 2000)
-                    return Response.Fail("Message text cannot exceed 2000 characters.");
 
                 var created = DateTime.Parse(msg.CreatedAt);
                 if ((DateTime.UtcNow - created).TotalMinutes > 5)

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Web;
@@ -16,7 +16,7 @@ namespace PeerLearningAndTutorialSystem.Models
         public string RoleName { get; set; }
         public string Status { get; set; }
         public bool IsEmailVerified { get; set; }
-        public string ProfileImage { get; set; }     // URL or base64 of uploaded image
+        public string ProfileImage { get; set; }
         /// <summary>Latest average score from tutor evaluations (Module 4). Null until first evaluation.</summary>
         public decimal? PerformanceScore { get; set; }
         /// <summary>Grade derived from PerformanceScore (Module 4): A+, A, B, C, D/F.</summary>
@@ -27,9 +27,5 @@ namespace PeerLearningAndTutorialSystem.Models
         public string CreatedAt { get; set; }
         public int? UpdatedBy { get; set; }
         public string UpdatedAt { get; set; }
-
-        // New fields
-        public string Center { get; set; }           // Malabe, Matara, Jaffna, Kandy
-        public string Semester { get; set; }         // "1st Semester", "2nd Semester" (only for students)
     }
 }

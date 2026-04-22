@@ -13,6 +13,7 @@ import TutorRegister from "./pages/TutorRegister";
 import SubjectSelection from "./pages/SubjectSelection";
 import AvailabilityCalendar from "./pages/AvailabilityCalendar";
 import TutorProfile from "./pages/TutorProfile";
+import PaymentGateway from "./pages/PaymentGateway";
 import Chat from "./pages/Chat";
 import FileUpload from "./pages/FileUpload";
 import SessionNotes from "./pages/SessionNotes";
@@ -25,9 +26,6 @@ import UploadRecording from "./pages/UploadRecording";
 import RecordingsList from "./pages/RecordingsList";
 import RecordingPlayback from "./pages/RecordingPlayback";
 import AdminModeration from "./pages/AdminModeration";
-import AdminUserManagement from "./pages/AdminUserManagement";
-import AdminReports from "./pages/AdminReports";
-import PaymentGateway from "./pages/PaymentGateway";
 import TutorApproval from "./pages/TutorApproval";
 import TutorPendingApproval from "./pages/TutorPendingApproval";
 
@@ -57,12 +55,11 @@ export const router = createBrowserRouter([
       { path: "profile",      element: <RoleRoute roles={["student"]}><UserProfile /></RoleRoute> },
       { path: "browse",       element: <RoleRoute roles={["student"]}><BrowseTutors /></RoleRoute> },
       { path: "tutor-profile/:id", element: <RoleRoute roles={["student"]}><TutorProfile /></RoleRoute> },
-      { path: "booking/:tutorId", element: <RoleRoute roles={["student"]}><BookingForm /></RoleRoute> },
+      { path: "booking/:tutorId",      element: <RoleRoute roles={["student"]}><BookingForm /></RoleRoute> },
       { path: "payment",               element: <RoleRoute roles={["student"]}><PaymentGateway /></RoleRoute> },
-      { path: "booking-confirmation", element: <RoleRoute roles={["student"]}><BookingConfirmation /></RoleRoute> },
+      { path: "booking-confirmation",  element: <RoleRoute roles={["student"]}><BookingConfirmation /></RoleRoute> },
       { path: "chat",         element: <RoleRoute roles={["student"]}><Chat /></RoleRoute> },
       { path: "materials",    element: <RoleRoute roles={["student"]}><MaterialsLibrary /></RoleRoute> },
-      { path: "session/notes", element: <RoleRoute roles={["student"]}><SessionNotes /></RoleRoute> },
       { path: "session/review", element: <RoleRoute roles={["student"]}><SessionReview /></RoleRoute> },
     ],
   },
@@ -101,12 +98,10 @@ export const router = createBrowserRouter([
     ),
     children: [
       { index: true, element: <Navigate to="/admin/analytics" replace /> },
-      { path: "analytics",   element: <RoleRoute roles={["admin"]}><AdminAnalytics /></RoleRoute> },
-      { path: "moderation",  element: <RoleRoute roles={["admin"]}><AdminModeration /></RoleRoute> },
+      { path: "analytics",       element: <RoleRoute roles={["admin"]}><AdminAnalytics /></RoleRoute> },
+      { path: "moderation",      element: <RoleRoute roles={["admin"]}><AdminModeration /></RoleRoute> },
       { path: "tutor-approval",  element: <RoleRoute roles={["admin"]}><TutorApproval /></RoleRoute> },
-      { path: "users",       element: <RoleRoute roles={["admin"]}><AdminUserManagement /></RoleRoute> },
-      { path: "reports",     element: <RoleRoute roles={["admin"]}><AdminReports /></RoleRoute> },
-      { path: "profile",     element: <RoleRoute roles={["admin"]}><UserProfile /></RoleRoute> },
+      { path: "profile",         element: <RoleRoute roles={["admin"]}><UserProfile /></RoleRoute> },
     ],
   },
 

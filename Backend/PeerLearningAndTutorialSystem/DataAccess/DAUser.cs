@@ -1,4 +1,4 @@
-using BCrypt.Net;
+﻿using BCrypt.Net;
 using MongoDB.Driver;
 using PeerLearningAndTutorialSystem.BusinessLayer;
 using PeerLearningAndTutorialSystem.DatabaseConnectivity;
@@ -63,74 +63,6 @@ namespace PeerLearningAndTutorialSystem.DataAccess
         }
 
         // 003 – REGISTER (sends OTP to email and phone)
-        //public Response Register(UserRequestApi request)
-        //{
-        //    try
-        //    {
-        //        if (string.IsNullOrWhiteSpace(request.FullName) ||
-        //            string.IsNullOrWhiteSpace(request.Email) ||
-        //            string.IsNullOrWhiteSpace(request.Password) ||
-        //            string.IsNullOrWhiteSpace(request.PhoneNumber))
-        //            return Response.Fail("Full name, email, phone number, and password are required.");
-
-        //        // Check confirmation checkbox
-        //        if (!request.ConfirmDetails)
-        //            return Response.Fail("You must confirm that the details are correct.");
-
-        //        // Validate Center
-        //        var validCenters = new[] { "Malabe", "Matara", "Jaffna", "Kandy" };
-        //        if (string.IsNullOrWhiteSpace(request.Center) || !validCenters.Contains(request.Center))
-        //            return Response.Fail("Please select a valid SLIIT center (Malabe, Matara, Jaffna, Kandy).");
-
-        //        // Check duplicate email
-        //        if (_users.Find(u => u.Email == request.Email.ToLower().Trim()).Any())
-        //            return Response.Fail("Email already registered.");
-
-        //        var user = new UserModel
-        //        {
-        //            UserId = CounterHelper.GetNextSequence("userId"),
-        //            FullName = request.FullName.Trim(),
-        //            Email = request.Email.ToLower().Trim(),
-        //            PhoneNumber = request.PhoneNumber.Trim(),
-        //            PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password, 12),
-        //            RoleId = request.RoleId ?? 3,
-        //            RoleName = request.RoleId == 1 ? "Admin" : (request.RoleId == 2 ? "Tutor" : "Student"),
-        //            Status = "Pending",
-        //            IsEmailVerified = false,
-        //            ProfileImage = null,
-        //            Center = request.Center,
-        //            // For students, store semester; for tutors/admins it can be null or empty
-        //            Semester = (request.RoleId == 3) ? request.Semester : null
-        //        };
-
-        //        // Validate semester for students
-        //        if (user.RoleId == 3 && string.IsNullOrWhiteSpace(user.Semester))
-        //            return Response.Fail("Semester is required for student registration.");
-
-        //        SetTimestamps(user);
-        //        _users.InsertOne(user);
-
-        //        // Generate and store OTP
-        //        string otp = EmailHelper.GenerateOtp();
-        //        var token = new VerificationToken
-        //        {
-        //            Email = user.Email,
-        //            PhoneNumber = user.PhoneNumber,
-        //            OtpCode = otp,
-        //            ExpiresAt = DateTime.UtcNow.AddMinutes(10),
-        //            Used = false,
-        //            Purpose = "registration"
-        //        };
-        //        _verificationTokens.InsertOne(token);
-
-        //        // Send OTPs
-        //        new EmailHelper().SendRegistrationOtpEmail(user.Email, otp);
-        //        SmsHelper.SendOtp(user.PhoneNumber, otp);
-
-        //        return Response.Success(null, "Registration successful. Please verify your email and phone using the OTP sent.");
-        //    }
-        //    catch (Exception ex) { return Response.Error(ex.Message); }
-        //}
         public Response Register(UserRequestApi request)
         {
             try
@@ -140,15 +72,6 @@ namespace PeerLearningAndTutorialSystem.DataAccess
                     string.IsNullOrWhiteSpace(request.Password) ||
                     string.IsNullOrWhiteSpace(request.PhoneNumber))
                     return Response.Fail("Full name, email, phone number, and password are required.");
-
-                // Check confirmation checkbox
-                if (!request.ConfirmDetails)
-                    return Response.Fail("You must confirm that the details are correct.");
-
-                // Validate Center
-                var validCenters = new[] { "Malabe", "Matara", "Jaffna", "Kandy" };
-                if (string.IsNullOrWhiteSpace(request.Center) || !validCenters.Contains(request.Center))
-                    return Response.Fail("Please select a valid SLIIT center (Malabe, Matara, Jaffna, Kandy).");
 
                 // Check duplicate email
                 if (_users.Find(u => u.Email == request.Email.ToLower().Trim()).Any())
@@ -163,51 +86,34 @@ namespace PeerLearningAndTutorialSystem.DataAccess
                     PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password, 12),
                     RoleId = request.RoleId ?? 3,
                     RoleName = request.RoleId == 1 ? "Admin" : (request.RoleId == 2 ? "Tutor" : "Student"),
-                    Status = "Active",                     // ✅ Active immediately
-                    IsEmailVerified = true,                // ✅ No OTP needed
-                    ProfileImage = request.ProfileImage,
-                    Center = request.Center,
-                    Semester = (request.RoleId == 3) ? request.Semester : null
+                    // Tutors start as PendingApproval — Admin must approve before they can use the platform
+                    Status = (request.RoleId == 2) ? "PendingApproval" : "Active",
+                    IsEmailVerified = true,
+                    ProfileImage = null
                 };
-
-                // Validate semester for students
-                if (user.RoleId == 3 && string.IsNullOrWhiteSpace(user.Semester))
-                    return Response.Fail("Semester is required for student registration.");
-
                 SetTimestamps(user);
                 _users.InsertOne(user);
 
-                // ✅ Send registration success email (no OTP)
-                new EmailHelper().SendRegistrationSuccessEmail(user.Email, user.FullName);
+                // OTP email verification disabled
+                //string otp = EmailHelper.GenerateOtp();
+                //var token = new VerificationToken
+                //{
+                //    Email = user.Email,
+                //    PhoneNumber = user.PhoneNumber,
+                //    OtpCode = otp,
+                //    ExpiresAt = DateTime.UtcNow.AddMinutes(10),
+                //    Used = false,
+                //    Purpose = "registration"
+                //};
+                //_verificationTokens.InsertOne(token);
+                //new EmailHelper().SendOtpEmail(user.Email, otp);
 
-                return Response.Success(null, "Registration successful. You can now log in.");
+                return Response.Success(null, "Registration successful. You can now sign in.");
             }
             catch (Exception ex) { return Response.Error(ex.Message); }
         }
 
         // 003b – VERIFY REGISTRATION OTP
-        //public Response VerifyRegistrationOtp(string email, string otpCode)
-        //{
-        //    try
-        //    {
-        //        var token = _verificationTokens.Find(t => t.Email == email && t.OtpCode == otpCode && !t.Used && t.ExpiresAt > DateTime.UtcNow && t.Purpose == "registration").FirstOrDefault();
-        //        if (token == null) return Response.Fail("Invalid or expired OTP.");
-
-        //        _verificationTokens.UpdateOne(t => t.Id == token.Id,
-        //            Builders<VerificationToken>.Update.Set(t => t.Used, true));
-
-        //        _users.UpdateOne(u => u.Email == email,
-        //            Builders<UserModel>.Update
-        //                .Set(u => u.Status, "Active")
-        //                .Set(u => u.IsEmailVerified, true)
-        //                .Set(u => u.UpdatedAt, ToIsoString(DateTime.UtcNow)));
-
-        //        return Response.Success(null, "Email and phone verified. You can now log in.");
-        //    }
-        //    catch (Exception ex) { return Response.Error(ex.Message); }
-        //}
-
-
         public Response VerifyRegistrationOtp(string email, string otpCode)
         {
             try
@@ -218,41 +124,13 @@ namespace PeerLearningAndTutorialSystem.DataAccess
                 _verificationTokens.UpdateOne(t => t.Id == token.Id,
                     Builders<VerificationToken>.Update.Set(t => t.Used, true));
 
-                var user = _users.Find(u => u.Email == email).FirstOrDefault();
-                if (user == null) return Response.Fail("User not found.");
-
                 _users.UpdateOne(u => u.Email == email,
                     Builders<UserModel>.Update
                         .Set(u => u.Status, "Active")
                         .Set(u => u.IsEmailVerified, true)
                         .Set(u => u.UpdatedAt, ToIsoString(DateTime.UtcNow)));
 
-                // Send account creation success email
-                new EmailHelper().SendAccountCreationSuccessEmail(user.Email, user.FullName);
-
                 return Response.Success(null, "Email and phone verified. You can now log in.");
-            }
-            catch (Exception ex) { return Response.Error(ex.Message); }
-        }
-
-        // Add a new method for updating profile image (to be called from a separate endpoint)
-        public Response UpdateProfileImage(int userId, string imageBase64)
-        {
-            try
-            {
-                var user = _users.Find(u => u.UserId == userId).FirstOrDefault();
-                if (user == null) return Response.Fail("User not found.");
-
-                // Optional: validate base64 string and size (max 2MB)
-                if (string.IsNullOrWhiteSpace(imageBase64))
-                    return Response.Fail("Image data is required.");
-
-                _users.UpdateOne(u => u.UserId == userId,
-                    Builders<UserModel>.Update
-                        .Set(u => u.ProfileImage, imageBase64)
-                        .Set(u => u.UpdatedAt, ToIsoString(DateTime.UtcNow)));
-
-                return Response.Success(null, "Profile image updated.");
             }
             catch (Exception ex) { return Response.Error(ex.Message); }
         }
@@ -373,13 +251,69 @@ namespace PeerLearningAndTutorialSystem.DataAccess
         {
             try
             {
-                var result = _users.UpdateOne(u => u.UserId == userId,
+                var user = _users.Find(u => u.UserId == userId).FirstOrDefault();
+                if (user == null) return Response.Fail("User not found.");
+
+                var updates = new List<UpdateDefinition<UserModel>>
+                {
+                    Builders<UserModel>.Update.Set(u => u.Status, status),
+                    Builders<UserModel>.Update.Set(u => u.UpdatedAt, ToIsoString(DateTime.UtcNow)),
+                    Builders<UserModel>.Update.Set(u => u.UpdatedBy, adminId)
+                };
+
+                // Record when a tutor account is activated for the 7-day registration deadline
+                if (status == "Active")
+                    updates.Add(Builders<UserModel>.Update.Set(u => u.ApprovedAt, ToIsoString(DateTime.UtcNow)));
+
+                _users.UpdateOne(u => u.UserId == userId, Builders<UserModel>.Update.Combine(updates));
+
+                return Response.Success(
+                    new { UserId = userId, FullName = user.FullName, Email = user.Email, RoleId = user.RoleId },
+                    $"Status changed to {status}.");
+            }
+            catch (Exception ex) { return Response.Error(ex.Message); }
+        }
+
+        // 007b – GET PENDING TUTOR SIGNUPS (Admin)
+        public Response GetPendingTutorSignups()
+        {
+            try
+            {
+                var tutors = _users
+                    .Find(u => u.RoleId == 2 && u.Status == "PendingApproval")
+                    .SortByDescending(u => u.CreatedAt)
+                    .ToList();
+                // Omit password hashes from response
+                tutors.ForEach(u => u.PasswordHash = null);
+                return Response.Success(tutors);
+            }
+            catch (Exception ex) { return Response.Error(ex.Message); }
+        }
+
+        // 007c – EXPIRE REGISTRATION (tutor missed 7-day window)
+        public Response ExpireRegistration(int userId)
+        {
+            try
+            {
+                var user = _users.Find(u => u.UserId == userId).FirstOrDefault();
+                if (user == null) return Response.Fail("User not found.");
+                if (user.RoleId != 2) return Response.Fail("Only tutor accounts are subject to registration expiry.");
+                if (user.Status != "Active") return Response.Fail("Account is not active.");
+
+                if (string.IsNullOrEmpty(user.ApprovedAt))
+                    return Response.Fail("Approval date not recorded. Cannot expire.");
+
+                DateTime approvedAt = DateTime.Parse(user.ApprovedAt, null,
+                    System.Globalization.DateTimeStyles.RoundtripKind);
+                if ((DateTime.UtcNow - approvedAt).TotalDays < 7)
+                    return Response.Fail("Registration deadline has not yet passed.");
+
+                _users.UpdateOne(u => u.UserId == userId,
                     Builders<UserModel>.Update
-                        .Set(u => u.Status, status)
-                        .Set(u => u.UpdatedAt, ToIsoString(DateTime.UtcNow))
-                        .Set(u => u.UpdatedBy, adminId));
-                if (result.MatchedCount == 0) return Response.Fail("User not found.");
-                return Response.Success(null, $"Status changed to {status}.");
+                        .Set(u => u.Status, "Inactive")
+                        .Set(u => u.UpdatedAt, ToIsoString(DateTime.UtcNow)));
+
+                return Response.Success(null, "Registration period expired. Account deactivated.");
             }
             catch (Exception ex) { return Response.Error(ex.Message); }
         }
@@ -393,7 +327,8 @@ namespace PeerLearningAndTutorialSystem.DataAccess
                 if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
                     return Response.Fail("Invalid email or password.");
 
-                if (user.Status != "Active")
+                // Allow Active users and PendingApproval tutors to log in
+                if (user.Status != "Active" && user.Status != "PendingApproval")
                     return Response.Fail($"Account is {user.Status}. Contact admin.");
                 if (!user.IsEmailVerified)
                     return Response.Fail("Please verify your email address.");
@@ -407,7 +342,8 @@ namespace PeerLearningAndTutorialSystem.DataAccess
                     user.Email,
                     user.RoleName,
                     user.RoleId,
-                    user.ProfileImage
+                    user.Status,
+                    user.ApprovedAt
                 }, "Login successful.");
             }
             catch (Exception ex) { return Response.Error(ex.Message); }
@@ -422,7 +358,7 @@ namespace PeerLearningAndTutorialSystem.DataAccess
                 if (existing != null)
                 {
                     string token = new JwtHelper().GenerateToken(existing);
-                    return Response.Success(new { token, existing.UserId, existing.FullName, existing.Email, existing.RoleName, existing.RoleId, existing.ProfileImage }, "Google login successful.");
+                    return Response.Success(new { token, existing.UserId, existing.FullName, existing.Email, existing.RoleName, existing.RoleId }, "Google login successful.");
                 }
 
                 var newUser = new UserModel
@@ -442,7 +378,7 @@ namespace PeerLearningAndTutorialSystem.DataAccess
                 _users.InsertOne(newUser);
 
                 string tokenNew = new JwtHelper().GenerateToken(newUser);
-                return Response.Success(new { token = tokenNew, newUser.UserId, newUser.FullName, newUser.Email, newUser.RoleName, newUser.RoleId, newUser.ProfileImage }, "Google auto-registration successful.");
+                return Response.Success(new { token = tokenNew, newUser.UserId, newUser.FullName, newUser.Email, newUser.RoleName, newUser.RoleId }, "Google auto-registration successful.");
             }
             catch (Exception ex) { return Response.Error(ex.Message); }
         }
@@ -538,125 +474,6 @@ namespace PeerLearningAndTutorialSystem.DataAccess
             {
                 var students = _users.Find(u => u.RoleId == 3).ToList();
                 return Response.Success(students);
-            }
-            catch (Exception ex) { return Response.Error(ex.Message); }
-        }
-        //Verify OTP before EDIT
-        public Response VerifyEditOtp(int userId, string otpCode)
-        {
-            try
-            {
-                var user = _users.Find(u => u.UserId == userId).FirstOrDefault();
-                if (user == null) return Response.Fail("User not found.");
-
-                var token = _verificationTokens.Find(t => t.Email == user.Email && t.OtpCode == otpCode && !t.Used && t.ExpiresAt > DateTime.UtcNow && t.Purpose == "edit_profile").FirstOrDefault();
-                if (token == null) return Response.Fail("Invalid or expired OTP.");
-
-                _verificationTokens.UpdateOne(t => t.Id == token.Id,
-                    Builders<VerificationToken>.Update.Set(t => t.Used, true));
-
-                return Response.Success(null, "OTP verified successfully.");
-            }
-            catch (Exception ex) { return Response.Error(ex.Message); }
-        }
-
-        public Response AdminEditUser(UserRequestApi request, int adminId)
-        {
-            try
-            {
-                int targetUserId = request.UserId ?? 0;
-                if (targetUserId == 0) return Response.Fail("UserId is required.");
-                var user = _users.Find(u => u.UserId == targetUserId).FirstOrDefault();
-                if (user == null) return Response.Fail("User not found.");
-                var updateDef = new List<UpdateDefinition<UserModel>>();
-                if (!string.IsNullOrWhiteSpace(request.FullName))
-                    updateDef.Add(Builders<UserModel>.Update.Set(u => u.FullName, request.FullName.Trim()));
-                if (!string.IsNullOrWhiteSpace(request.PhoneNumber))
-                    updateDef.Add(Builders<UserModel>.Update.Set(u => u.PhoneNumber, request.PhoneNumber.Trim()));
-                if (!string.IsNullOrWhiteSpace(request.Center))
-                    updateDef.Add(Builders<UserModel>.Update.Set(u => u.Center, request.Center));
-                if (request.RoleId.HasValue)
-                {
-                    updateDef.Add(Builders<UserModel>.Update.Set(u => u.RoleId, request.RoleId.Value));
-                    updateDef.Add(Builders<UserModel>.Update.Set(u => u.RoleName,
-                        request.RoleId == 1 ? "Admin" : (request.RoleId == 2 ? "Tutor" : "Student")));
-                }
-                if (!string.IsNullOrWhiteSpace(request.Semester))
-                    updateDef.Add(Builders<UserModel>.Update.Set(u => u.Semester, request.Semester));
-                if (updateDef.Count == 0)
-                    return Response.Fail("No valid fields to update.");
-                updateDef.Add(Builders<UserModel>.Update.Set(u => u.UpdatedAt, ToIsoString(DateTime.UtcNow)));
-                updateDef.Add(Builders<UserModel>.Update.Set(u => u.UpdatedBy, adminId));
-                var update = Builders<UserModel>.Update.Combine(updateDef);
-                _users.UpdateOne(u => u.UserId == targetUserId, update);
-                return Response.Success(null, "User updated.");
-            }
-            catch (Exception ex) { return Response.Error(ex.Message); }
-        }
-        // ─────────────────────────────────────────────────────────────────
-        // 016 – GET PENDING TUTOR SIGNUPS (Admin only)
-        // Returns tutors who have registered but are awaiting admin verification.
-        // Status == "PendingApproval" is set during tutor registration.
-        public Response GetPendingTutorSignups()
-        {
-            try
-            {
-                var pending = _users
-                    .Find(u => u.RoleId == 2 && u.Status == "PendingApproval")
-                    .ToList()
-                    .Select(u => new
-                    {
-                        u.UserId,
-                        u.FullName,
-                        u.Email,
-                        u.PhoneNumber,
-                        u.Status,
-                        u.Center,
-                        u.CreatedAt,
-                        u.ApprovedAt,
-                        // Surface how many days remain in the 7-day window
-                        DaysRemaining = u.CreatedAt != null
-                            ? Math.Max(0, 7 - (int)(DateTime.UtcNow - DateTime.Parse(u.CreatedAt)).TotalDays)
-                            : 7
-                    })
-                    .ToList();
-
-                return Response.Success(pending);
-            }
-            catch (Exception ex) { return Response.Error(ex.Message); }
-        }
-
-        // ─────────────────────────────────────────────────────────────────
-        // 017 – EXPIRE TUTOR REGISTRATION
-        // Called when a tutor's 7-day approval window has passed.
-        // Sets Status → "Expired" so the account cannot log in.
-        // The tutor must re-register if they want to reapply.
-        public Response ExpireRegistration(int userId)
-        {
-            try
-            {
-                var user = _users.Find(u => u.UserId == userId).FirstOrDefault();
-                if (user == null) return Response.Fail("User not found.");
-
-                if (user.RoleId != 2)
-                    return Response.Fail("Only tutor accounts can be expired.");
-
-                if (user.Status != "PendingApproval")
-                    return Response.Fail($"Account is already '{user.Status}' — only PendingApproval accounts can be expired.");
-
-                _users.UpdateOne(u => u.UserId == userId,
-                    Builders<UserModel>.Update
-                        .Set(u => u.Status, "Expired")
-                        .Set(u => u.UpdatedAt, ToIsoString(DateTime.UtcNow)));
-
-                // Notify the tutor that their registration window has closed
-                try
-                {
-                    new EmailHelper().SendRegistrationExpiredEmail(user.Email, user.FullName);
-                }
-                catch { /* Don't let email failure block the status update */ }
-
-                return Response.Success(null, "Tutor registration expired. They must re-register.");
             }
             catch (Exception ex) { return Response.Error(ex.Message); }
         }

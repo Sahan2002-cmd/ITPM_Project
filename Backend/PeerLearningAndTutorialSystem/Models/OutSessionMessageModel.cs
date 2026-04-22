@@ -24,6 +24,5 @@ namespace PeerLearningAndTutorialSystem.Models
 
         // Joined fields
         public string SenderName { get; set; }
-        public string ConversationKey { get;  set; }
     }
 }

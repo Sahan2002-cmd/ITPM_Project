@@ -15,6 +15,13 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
+  // Tutors whose account is still pending admin approval can only see the waiting page
+  if (user.role === 'tutor' && user.status === 'PendingApproval') {
+    if (location.pathname !== '/tutor/pending-approval') {
+      return <Navigate to="/tutor/pending-approval" replace />;
+    }
+  }
+
   // Role check: if allowedRoles defined and user's role not in it → redirect to their own dashboard
   if (allowedRoles && !allowedRoles.includes(user.role)) {
     if (user.role === 'admin') return <Navigate to="/admin/analytics" replace />;

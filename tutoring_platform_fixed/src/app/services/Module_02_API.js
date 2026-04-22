@@ -34,7 +34,8 @@ const getAuthHeaders = () => {
 
 const handleResponse = async (res) => {
   const data = await res.json();
-  if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
+  // Backend Response model uses capital-M "Message"; HttpError uses lowercase "message"
+  if (!res.ok) throw new Error(data.Message || data.message || `HTTP ${res.status}`);
   return data;
 };
 
@@ -47,14 +48,7 @@ const handleResponse = async (res) => {
 /**
  * Create a new session booking request.
  * Status is always set to "Pending" by the backend.
- * @param {Object} bookingData
- * @param {number} bookingData.studentId
- * @param {number} bookingData.tutorId
- * @param {number} bookingData.availabilitySlotId  - Must have status = "Free"
- * @param {string} bookingData.subject             - Must be one of tutor's subjects
- * @param {"individual" | "group"} bookingData.sessionType
- * @param {string} [bookingData.notes]
- * @param {Array<{name: string, studentId: string}>} [bookingData.groupMembers]
+ * @param {{ AvailabilityId: string, TutorProfileId: string, TutorId: number, StudentId: number }} bookingData
  */
 export const createBooking = async (bookingData) => {
   const res = await fetch(`${BASE_URL}/booking/create`, {

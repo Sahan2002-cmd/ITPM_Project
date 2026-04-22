@@ -1,7 +1,7 @@
 ﻿using MongoDB.Driver;
 using PeerLearningAndTutorialSystem.DatabaseConnectivity;
 
-namespace PeerLearningAndTutorialSystem.DatabaseConnectivity
+namespace PeerLearningAndTutorialSystem.BusinessLayer
 {
     public static class CounterHelper
     {
@@ -14,10 +14,13 @@ namespace PeerLearningAndTutorialSystem.DatabaseConnectivity
             // Ensure counters exist for all collections
             EnsureCounter("userId");
             EnsureCounter("bookingId");
+            EnsureCounter("notificationId");
             EnsureCounter("fileId");
             EnsureCounter("messageId");
             EnsureCounter("outMessageId");
             EnsureCounter("noteId");
+            EnsureCounter("ratingId");
+            EnsureCounter("evaluationId");
         }
 
         private static void EnsureCounter(string id)
@@ -33,7 +36,11 @@ namespace PeerLearningAndTutorialSystem.DatabaseConnectivity
         {
             var filter = Builders<Counter>.Filter.Eq(c => c.Id, counterId);
             var update = Builders<Counter>.Update.Inc(c => c.Seq, 1);
-            var options = new FindOneAndUpdateOptions<Counter> { ReturnDocument = ReturnDocument.After };
+            var options = new FindOneAndUpdateOptions<Counter>
+            {
+                ReturnDocument = ReturnDocument.After,
+                IsUpsert = true
+            };
             var result = _counters.FindOneAndUpdate(filter, update, options);
             return result.Seq;
         }

@@ -135,12 +135,12 @@ export default function BookingConfirmation() {
 
       {/* Actions */}
       <div className="grid grid-cols-2 gap-3">
-        <Link
+        {/* <Link
           to="/student/chat"
           className="flex items-center justify-center gap-2 py-3 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
         >
           <MessageSquare className="w-4 h-4 text-violet-500" /> Message Tutor
-        </Link>
+        </Link> */}
         <Link
           to="/student/history"
           className="flex items-center justify-center gap-2 py-3 bg-violet-600 rounded-xl text-sm font-medium text-white hover:bg-violet-700 transition-colors"

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Net;
 using System.Net.Mail;
 
@@ -144,75 +144,6 @@ namespace PeerLearningAndTutorialSystem.BusinessLayer
         {
             // Use Random with a time-based seed for better distribution
             return new Random().Next(100000, 999999).ToString();
-        }
-
-        public void SendAccountCreationSuccessEmail(string toEmail, string fullName)
-        {
-            string subject = "Account Created Successfully – PeerLearn 🎉";
-            string body = $@"
-        <div style='font-family:Arial,sans-serif;max-width:600px;margin:auto;'>
-            <h2 style='color:#2c3e50;'>Welcome, {fullName}!</h2>
-            <p>Your <strong>PeerLearn</strong> account has been successfully verified and activated.</p>
-            <p>You can now <strong>log in</strong> and start using all features of the platform.</p>
-            <p>If you did not create this account, please contact support immediately.</p>
-            <hr/>
-            <small style='color:#888;'>PeerLearning &amp; Tutorial System — SLIIT</small>
-        </div>";
-            Send(toEmail, subject, body);
-        }
-
-        /// <summary>
-        /// Sends a 6-digit OTP to the user's email for account verification during registration.
-        /// </summary>
-        public void SendRegistrationOtpEmail(string toEmail, string otpCode)
-        {
-            string subject = "PeerLearn — Verify Your Email Address";
-            string body = $@"
-        <div style='font-family:Arial,sans-serif;max-width:600px;margin:auto;'>
-            <h2 style='color:#2c3e50;'>Welcome to PeerLearn!</h2>
-            <p>Thank you for registering. Please verify your email address by entering the OTP below:</p>
-            <h1 style='letter-spacing:8px;color:#e74c3c;text-align:center;'>{otpCode}</h1>
-            <p>This OTP expires in <strong>10 minutes</strong>.</p>
-            <p>If you did not create this account, please ignore this email.</p>
-            <hr/>
-            <small style='color:#888;'>PeerLearning &amp; Tutorial System — SLIIT</small>
-        </div>";
-            Send(toEmail, subject, body);
-        }
-
-        /// <summary>
-        /// Sends a registration success email (no OTP).
-        /// </summary>
-        public void SendRegistrationSuccessEmail(string toEmail, string fullName)
-        {
-            string subject = "Registration Successful – Welcome to PeerLearn! 🎉";
-            string body = $@"
-        <div style='font-family:Arial,sans-serif;max-width:600px;margin:auto;'>
-            <h2 style='color:#2c3e50;'>Welcome, {fullName}!</h2>
-            <p>Your <strong>PeerLearn</strong> account has been successfully created.</p>
-            <p>You can now <strong>log in</strong> using your email and password.</p>
-            <p>If you did not create this account, please contact support immediately.</p>
-            <hr/>
-            <small style='color:#888;'>PeerLearning &amp; Tutorial System — SLIIT</small>
-        </div>";
-            Send(toEmail, subject, body);
-        }
-
-        /// <summary>
-        /// Sends an email notifying the tutor that their 7-day registration window has expired.
-        /// </summary>
-        public void SendRegistrationExpiredEmail(string toEmail, string fullName)
-        {
-            string subject = "Tutor Registration Expired – PeerLearn";
-            string body = $@"
-        <div style='font-family:Arial,sans-serif;max-width:600px;margin:auto;'>
-            <h2 style='color:#e74c3c;'>Registration Expired, {fullName}</h2>
-            <p>Your <strong>PeerLearn</strong> account registration has expired because the 7-day approval window passed without admin verification.</p>
-            <p>If you wish to become a tutor, please <strong>re-register</strong> to start a new application.</p>
-            <hr/>
-            <small style='color:#888;'>PeerLearning &amp; Tutorial System — SLIIT</small>
-        </div>";
-            Send(toEmail, subject, body);
         }
     }
 }

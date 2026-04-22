@@ -35,9 +35,9 @@ export default function Login() {
 
   const fillCredentials = (type: 'student' | 'tutor' | 'admin') => {
     const credentials = {
-      student: { email: 'student@sliit.lk', password: 'Student@123' },
-      tutor: { email: 'tutor@sliit.lk', password: 'Tutor@123' },
-      admin: { email: 'admin@sliit.lk', password: 'Admin@123' },
+      student: { email: 'it23837676@my.sliit.lk', password: 'Student@123' },
+      tutor: { email: 'randeer.p@sliit.lk', password: 'Tutor@123' },
+      admin: { email: 'gamage.admin@sliit.lk', password: 'Admin@123' },
     };
     setEmail(credentials[type].email);
     setPassword(credentials[type].password);
@@ -285,21 +285,21 @@ export default function Login() {
                     <div className="flex justify-between items-center py-2 border-b border-slate-200 dark:border-slate-700">
                       <span className="font-semibold text-violet-600 dark:text-violet-400">Student</span>
                       <div className="text-right">
-                        <div className="text-slate-700 dark:text-slate-300">student@sliit.lk</div>
+                        <div className="text-slate-700 dark:text-slate-300">it23837676@my.sliit.lk</div>
                         <div className="text-slate-500 dark:text-slate-400">Student@123</div>
                       </div>
                     </div>
                     <div className="flex justify-between items-center py-2 border-b border-slate-200 dark:border-slate-700">
                       <span className="font-semibold text-emerald-600 dark:text-emerald-400">Tutor</span>
                       <div className="text-right">
-                        <div className="text-slate-700 dark:text-slate-300">tutor@sliit.lk</div>
+                        <div className="text-slate-700 dark:text-slate-300">randeer.p@sliit.lk</div>
                         <div className="text-slate-500 dark:text-slate-400">Tutor@123</div>
                       </div>
                     </div>
                     <div className="flex justify-between items-center py-2">
                       <span className="font-semibold text-rose-600 dark:text-rose-400">Admin</span>
                       <div className="text-right">
-                        <div className="text-slate-700 dark:text-slate-300">admin@sliit.lk</div>
+                        <div className="text-slate-700 dark:text-slate-300">gamage.admin@sliit.lk</div>
                         <div className="text-slate-500 dark:text-slate-400">Admin@123</div>
                       </div>
                     </div>

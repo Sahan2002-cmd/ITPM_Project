@@ -178,7 +178,7 @@ export default function BrowseTutors() {
 
                   <div className="flex gap-2 mt-4">
                     <Link
-                      to={`/tutor/profile/${tutor.Id}`}
+                      to={`/student/tutor-profile/${tutor.Id}`}
                       className="flex-1 text-center py-2 text-sm font-medium text-slate-700 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors"
                     >
                       View Profile

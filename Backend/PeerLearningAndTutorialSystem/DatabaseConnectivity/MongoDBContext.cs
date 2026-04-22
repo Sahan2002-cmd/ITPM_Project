@@ -19,9 +19,5 @@ namespace PeerLearningAndTutorialSystem.DatabaseConnectivity
         {
             return _database.GetCollection<T>(collectionName);
         }
-
-        // Optional: expose the database for admin operations
-        public IMongoDatabase GetDatabase() => _database;
-    
-}
+    }
 }

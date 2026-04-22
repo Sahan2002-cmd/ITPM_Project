@@ -1,4 +1,4 @@
-using MongoDB.Driver;
+﻿using MongoDB.Driver;
 using PeerLearningAndTutorialSystem.BusinessLayer;
 using PeerLearningAndTutorialSystem.DatabaseConnectivity;
 using PeerLearningAndTutorialSystem.Interfaces;
@@ -6,7 +6,6 @@ using PeerLearningAndTutorialSystem.Models;
 using PeerLearningAndTutorialSystem.Models.RequestApiModels;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace PeerLearningAndTutorialSystem.DataAccess
 {
@@ -46,8 +45,6 @@ namespace PeerLearningAndTutorialSystem.DataAccess
             {
                 if (string.IsNullOrWhiteSpace(request.MessageText))
                     return Response.Fail("Message text cannot be empty.");
-                if (request.MessageText.Trim().Length > 2000)
-                    return Response.Fail("Message text cannot exceed 2000 characters.");
 
                 var booking = _bookings.Find(b => b.BookingId == request.BookingId).FirstOrDefault();
                 if (booking == null || !(booking.Status == "Completed" || booking.Status == "Confirmed" || booking.Status == "Pending"))
@@ -84,11 +81,6 @@ namespace PeerLearningAndTutorialSystem.DataAccess
                 var msg = _messages.Find(m => m.OutMessageId == request.OutMessageId).FirstOrDefault();
                 if (msg == null) return Response.Fail("Message not found.");
                 if (msg.SenderId != callerId) return Response.Fail("You can only edit your own messages.");
-
-                if (string.IsNullOrWhiteSpace(request.MessageText))
-                    return Response.Fail("Message text cannot be empty.");
-                if (request.MessageText.Trim().Length > 2000)
-                    return Response.Fail("Message text cannot exceed 2000 characters.");
 
                 var created = DateTime.Parse(msg.CreatedAt);
                 if ((DateTime.UtcNow - created).TotalMinutes > 30)
@@ -169,108 +161,6 @@ namespace PeerLearningAndTutorialSystem.DataAccess
         {
             var all = _messages.Find(m => !m.IsDeleted).ToList();
             return Response.Success(all);
-        }
-
-        // Helper to generate a conversation key from two user IDs
-        // Helper to generate a conversation key
-        private string GetConversationKey(int userId1, int userId2)
-        {
-            int a = Math.Min(userId1, userId2);
-            int b = Math.Max(userId1, userId2);
-            return $"{a}_{b}";
-        }
-
-        public Response SendDirectMessage(int senderId, int receiverId, string messageText)
-        {
-            try
-            {
-                if (string.IsNullOrWhiteSpace(messageText))
-                    return Response.Fail("Message text cannot be empty.");
-                if (messageText.Trim().Length > 2000)
-                    return Response.Fail("Message text cannot exceed 2000 characters.");
-
-                var msg = new OutSessionMessageModel
-                {
-                    OutMessageId = CounterHelper.GetNextSequence("outMessageId"),
-                    BookingId = -1,
-                    ConversationKey = GetConversationKey(senderId, receiverId),
-                    SenderId = senderId,
-                    ReceiverId = receiverId,
-                    MessageText = messageText.Trim(),
-                    IsRead = false,
-                    EditedAt = null,
-                    IsDeleted = false,
-                    DeletedAt = null,
-                    AdminDeleteReason = null,
-                    CreatedBy = senderId,
-                    CreatedAt = NowIso(),
-                    UpdatedBy = null,
-                    UpdatedAt = null
-                };
-                _messages.InsertOne(msg);
-                return Response.Success(msg, "Message sent.");
-            }
-            catch (Exception ex) { return Response.Error(ex.Message); }
-        }
-
-        public Response GetDirectMessages(int userId1, int userId2)
-        {
-            try
-            {
-                string key = GetConversationKey(userId1, userId2);
-                var filter = Builders<OutSessionMessageModel>.Filter.And(
-                    Builders<OutSessionMessageModel>.Filter.Eq(m => m.ConversationKey, key),
-                    Builders<OutSessionMessageModel>.Filter.Eq(m => m.IsDeleted, false)
-                );
-                var list = _messages.Find(filter).SortBy(m => m.CreatedAt).ToList();
-                return Response.Success(list);
-            }
-            catch (Exception ex) { return Response.Error(ex.Message); }
-        }
-
-        public Response GetConversationPartners(int userId)
-        {
-            try
-            {
-                var senderIds = _messages.Find(m => m.SenderId == userId && !m.IsDeleted)
-                                         .Project(m => m.ReceiverId).ToList();
-                var receiverIds = _messages.Find(m => m.ReceiverId == userId && !m.IsDeleted)
-                                           .Project(m => m.SenderId).ToList();
-                var partnerIds = senderIds.Union(receiverIds).Distinct().ToList();
-
-                // Always merge default partners
-                var currentUserRes = new DAUser().GetUserById(userId);
-                if (currentUserRes.StatusCode == 1 && currentUserRes.Data is UserModel currentUser)
-                {
-                    if (currentUser.RoleId == 3) // Student
-                    {
-                        var tutors = new DAUser().GetAllTutors();
-                        if (tutors.StatusCode == 1 && tutors.Data is List<UserModel> tutorList)
-                            partnerIds = partnerIds.Union(tutorList.Select(t => t.UserId)).Distinct().ToList();
-                    }
-                    else if (currentUser.RoleId == 2) // Tutor
-                    {
-                        var students = new DAUser().GetStudentsForTutor(userId);
-                        if (students.StatusCode == 1 && students.Data is List<UserModel> studentList)
-                            partnerIds = partnerIds.Union(studentList.Select(s => s.UserId)).Distinct().ToList();
-
-                        if (partnerIds.Count == 0)
-                        {
-                            var allStudents = new DAUser().GetAllStudents();
-                            if (allStudents.StatusCode == 1 && allStudents.Data is List<UserModel> stList)
-                                partnerIds = partnerIds.Union(stList.Select(s => s.UserId)).Distinct().ToList();
-                        }
-                    }
-                    else // Admin
-                    {
-                        var allUsers = new DAUser().GetAllUsers();
-                        if (allUsers.StatusCode == 1 && allUsers.Data is List<UserModel> uList)
-                            partnerIds = partnerIds.Union(uList.Where(u => u.UserId != userId).Select(u => u.UserId)).Distinct().ToList();
-                    }
-                }
-                return Response.Success(partnerIds);
-            }
-            catch (Exception ex) { return Response.Error(ex.Message); }
         }
     }
 }

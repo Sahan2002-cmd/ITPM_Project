@@ -32,7 +32,7 @@ const getAuthHeaders = () => {
 
 const handleResponse = async (res) => {
   const data = await res.json();
-  if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
+  if (!res.ok) throw new Error(data.Message || data.message || `HTTP ${res.status}`);
   return data;
 };
 
@@ -58,7 +58,7 @@ const handleResponse = async (res) => {
  * @param {string[]} profileData.languages
  */
 export const createTutorProfile = async (profileData) => {
-  const res = await fetch(`${BASE_URL}/tutorprofile`, {
+  const res = await fetch(`${BASE_URL}/tutorprofile/create`, {
     method: "POST",
     headers: getAuthHeaders(),
     body: JSON.stringify(profileData),

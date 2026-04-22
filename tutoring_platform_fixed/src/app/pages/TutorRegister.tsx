@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useNavigate } from "react-router";
-import { Upload, User, BookOpen, ChevronRight, Check, GraduationCap, Camera, AlertCircle } from "lucide-react";
+import { Upload, User, BookOpen, ChevronRight, Check, GraduationCap, Camera, AlertCircle, FileText, Loader2 } from "lucide-react";
 import { TUTOR_IMAGES } from "../data/mockData";
+import { createTutorProfile } from "../services/Module_01_API";
+import { useAuth } from "../contexts/AuthContext";
 
 const steps = ["Personal Info", "Education & Expertise", "Profile & Bio", "Verification"];
 
@@ -16,6 +18,7 @@ type FormState = {
   bio: string;
   hourlyRate: string;
   languages: string[];
+  teachingStyles: string[];
 };
 
 type FieldErrors = Partial<Record<keyof FormState | "general", string>>;
@@ -79,30 +82,93 @@ function validateForStep(step: number, form: FormState): FieldErrors {
   return {};
 }
 
+/** Convert a File object to a base64 data-URI string. */
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload  = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error("Failed to read file."));
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function TutorRegister() {
   const [step, setStep] = useState(0);
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [form, setForm] = useState<FormState>({
     firstName: "", lastName: "", email: "", phone: "",
     degree: "", institution: "", graduationYear: "", bio: "",
-    hourlyRate: "", languages: [],
+    hourlyRate: "", languages: [], teachingStyles: [],
   });
   const [errors, setErrors] = useState<FieldErrors>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+  const certInputRef = useRef<HTMLInputElement>(null);
+  const idInputRef   = useRef<HTMLInputElement>(null);
+  const [certFile, setCertFile]   = useState<File | null>(null);
+  const [idFile,   setIdFile]     = useState<File | null>(null);
 
   const update = (key: keyof FormState, val: string) => {
     setForm(f => ({ ...f, [key]: val }));
     setErrors(e => { const n = { ...e }; delete n[key]; return n; });
   };
 
-  const nextStep = () => {
-    const errs = validateForStep(step, form);
-    if (Object.keys(errs).length > 0) {
-      setErrors(errs);
+  const nextStep = async () => {
+    // Steps 0-2: validate and advance
+    if (step < steps.length - 1) {
+      const errs = validateForStep(step, form);
+      if (Object.keys(errs).length > 0) { setErrors(errs); return; }
+      setErrors({});
+      setStep(s => s + 1);
       return;
     }
-    setErrors({});
-    if (step < steps.length - 1) setStep(s => s + 1);
-    else navigate("/tutor/subjects");
+
+    // Final step: submit the profile to the backend
+    setSubmitError("");
+
+    // Guard: reject files that would make the JSON body too large
+    const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
+    if (certFile && certFile.size > MAX_FILE_BYTES) {
+      setSubmitError("Certificate file is too large. Please upload a file under 10 MB.");
+      return;
+    }
+    if (idFile && idFile.size > MAX_FILE_BYTES) {
+      setSubmitError("ID document is too large. Please upload a file under 10 MB.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const certUrl = certFile ? await fileToBase64(certFile) : undefined;
+      const idUrl   = idFile   ? await fileToBase64(idFile)   : undefined;
+
+      const payload = {
+        UserId:            user?.userId ?? 0,
+        Email:             form.email.trim(),
+        FullName:          `${form.firstName.trim()} ${form.lastName.trim()}`,
+        Bio:               form.bio.trim(),
+        HourlyRate:        Number(form.hourlyRate),
+        Qualifications:    [`${form.degree.trim()} – ${form.institution.trim()} (${form.graduationYear.trim()})`],
+        SubjectsTaught:    [],
+        YearsOfExperience: 0,
+        Languages:         form.languages,
+        TeachingStyles:    form.teachingStyles,
+        CertificateUrl:    certUrl,
+        IdDocumentUrl:     idUrl,
+      };
+
+      const res = await createTutorProfile(payload);
+      if (res?.StatusCode === 1) {
+        navigate("/tutor/dashboard");
+      } else {
+        setSubmitError(res?.Message || "Submission failed. Please try again.");
+      }
+    } catch (e: unknown) {
+      setSubmitError(e instanceof Error ? e.message : "Submission failed. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const FieldError = ({ field }: { field: keyof FieldErrors }) =>
@@ -215,10 +281,29 @@ export default function TutorRegister() {
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">Upload Certificate / Credential</label>
-              <div className="border-2 border-dashed border-slate-200 rounded-xl p-6 text-center hover:border-violet-300 transition-colors cursor-pointer">
-                <Upload className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                <p className="text-sm text-slate-500">Drag & drop or <span className="text-violet-600 font-medium">browse files</span></p>
-                <p className="text-xs text-slate-400 mt-1">PDF, JPG, PNG up to 10MB</p>
+              <input
+                ref={certInputRef}
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png"
+                className="hidden"
+                onChange={e => setCertFile(e.target.files?.[0] ?? null)}
+              />
+              <div
+                onClick={() => certInputRef.current?.click()}
+                className="border-2 border-dashed border-slate-200 rounded-xl p-6 text-center hover:border-violet-300 transition-colors cursor-pointer"
+              >
+                {certFile ? (
+                  <div className="flex items-center justify-center gap-2 text-violet-700">
+                    <FileText className="w-6 h-6" />
+                    <span className="text-sm font-medium truncate max-w-xs">{certFile.name}</span>
+                  </div>
+                ) : (
+                  <>
+                    <Upload className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                    <p className="text-sm text-slate-500">Drag & drop or <span className="text-violet-600 font-medium">browse files</span></p>
+                    <p className="text-xs text-slate-400 mt-1">PDF, JPG, PNG up to 10MB</p>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -271,11 +356,25 @@ export default function TutorRegister() {
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">Teaching Style</label>
               <div className="grid grid-cols-2 gap-2">
-                {["Interactive & Discussion", "Structured & Methodical", "Problem-Solving Focus", "Concept-First Approach"].map(style => (
-                  <button key={style} className="p-3 border border-slate-200 rounded-xl text-sm text-slate-700 hover:border-violet-300 hover:bg-violet-50 text-left transition-all">
-                    {style}
-                  </button>
-                ))}
+                {["Interactive & Discussion", "Structured & Methodical", "Problem-Solving Focus", "Concept-First Approach"].map(style => {
+                  const isActive = form.teachingStyles.includes(style);
+                  return (
+                    <button
+                      key={style}
+                      type="button"
+                      onClick={() => {
+                        const next = isActive
+                          ? form.teachingStyles.filter(s => s !== style)
+                          : [...form.teachingStyles, style];
+                        setForm(f => ({ ...f, teachingStyles: next }));
+                      }}
+                      className={`p-3 border rounded-xl text-sm font-medium text-left transition-all flex items-center gap-2 ${isActive ? "bg-violet-600 text-white border-violet-600" : "border-slate-200 text-slate-700 hover:border-violet-300 hover:bg-violet-50"}`}
+                    >
+                      {isActive && <Check className="w-3.5 h-3.5 flex-shrink-0" />}
+                      {style}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -289,15 +388,40 @@ export default function TutorRegister() {
             </div>
             <h2 className="font-semibold text-slate-800">Almost Done!</h2>
             <p className="text-sm text-slate-500 max-w-sm mx-auto">We need to verify your identity. Upload a government-issued ID to complete registration.</p>
-            <div className="border-2 border-dashed border-violet-200 rounded-2xl p-8 bg-violet-50 cursor-pointer hover:bg-violet-100 transition-colors mx-auto max-w-xs">
-              <Upload className="w-10 h-10 text-violet-400 mx-auto mb-2" />
-              <p className="text-sm font-medium text-violet-700">Upload ID Document</p>
-              <p className="text-xs text-violet-500 mt-1">Passport, Driver's License, or National ID</p>
+            <input
+              ref={idInputRef}
+              type="file"
+              accept=".pdf,.jpg,.jpeg,.png"
+              className="hidden"
+              onChange={e => setIdFile(e.target.files?.[0] ?? null)}
+            />
+            <div
+              onClick={() => idInputRef.current?.click()}
+              className="border-2 border-dashed border-violet-200 rounded-2xl p-8 bg-violet-50 cursor-pointer hover:bg-violet-100 transition-colors mx-auto max-w-xs"
+            >
+              {idFile ? (
+                <div className="flex flex-col items-center gap-2 text-violet-700">
+                  <FileText className="w-10 h-10 text-violet-400" />
+                  <p className="text-sm font-medium">{idFile.name}</p>
+                  <p className="text-xs text-violet-500">Tap to change file</p>
+                </div>
+              ) : (
+                <>
+                  <Upload className="w-10 h-10 text-violet-400 mx-auto mb-2" />
+                  <p className="text-sm font-medium text-violet-700">Upload ID Document</p>
+                  <p className="text-xs text-violet-500 mt-1">Passport, Driver's License, or National ID</p>
+                </>
+              )}
             </div>
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800 text-left">
               <p className="font-medium mb-1">⏱ Review Process</p>
               <p>Your application will be reviewed within 24-48 hours. You'll receive an email confirmation once approved.</p>
             </div>
+            {submitError && (
+              <div className="flex items-center gap-2 px-4 py-3 bg-rose-50 border border-rose-200 rounded-xl text-sm text-rose-700 text-left">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" /> {submitError}
+              </div>
+            )}
           </div>
         )}
 
@@ -308,9 +432,12 @@ export default function TutorRegister() {
               Back
             </button>
           )}
-          <button onClick={nextStep} className="flex-1 flex items-center justify-center gap-2 py-3 bg-violet-600 rounded-xl text-sm font-medium text-white hover:bg-violet-700 transition-colors">
-            {step < steps.length - 1 ? "Continue" : "Submit Application"}
-            <ChevronRight className="w-4 h-4" />
+          <button onClick={nextStep} disabled={isSubmitting} className="flex-1 flex items-center justify-center gap-2 py-3 bg-violet-600 rounded-xl text-sm font-medium text-white hover:bg-violet-700 transition-colors disabled:opacity-60">
+            {isSubmitting ? (
+              <><Loader2 className="w-4 h-4 animate-spin" /> Submitting...</>
+            ) : (
+              <>{step < steps.length - 1 ? "Continue" : "Submit Application"}<ChevronRight className="w-4 h-4" /></>
+            )}
           </button>
         </div>
       </div>

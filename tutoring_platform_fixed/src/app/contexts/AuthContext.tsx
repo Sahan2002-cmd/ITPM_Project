@@ -7,11 +7,13 @@ interface User {
   role: 'student' | 'tutor' | 'admin';
   avatar: string;
   userId?: number;
+  status?: string;        // "Active" | "PendingApproval" | "Inactive" | "Suspended"
+  approvedAt?: string | null;
 }
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string) => Promise<{ success: boolean; error?: string; role?: string }>;
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string; role?: string; status?: string }>;
   logout: () => void;
   isAuthenticated: boolean;
 }
@@ -33,16 +35,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user]);
 
-  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string; role?: string }> => {
+  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string; role?: string; status?: string }> => {
     try {
       const data = await loginUser({ email, password });
 
-      // Backend returns: { StatusCode, Data: { token, UserId, FullName, Email, RoleName, RoleId }, Message }
+      // Backend returns: { StatusCode, Data: { token, UserId, FullName, Email, RoleName, RoleId, Status, ApprovedAt }, Message }
       if (data.StatusCode !== 1) {
         return { success: false, error: data.Message || 'Invalid email or password' };
       }
 
-      const { token, UserId, FullName, Email, RoleName, ProfileImage } = data.Data;
+      const { token, UserId, FullName, Email, RoleName, Status, ApprovedAt } = data.Data;
       const role = (RoleName as string).toLowerCase() as 'student' | 'tutor' | 'admin';
 
       localStorage.setItem('token', token);
@@ -51,11 +53,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         email: Email,
         name: FullName,
         role,
-        avatar: ProfileImage || `https://api.dicebear.com/7.x/avataaars/svg?seed=${FullName}`,
+        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${FullName}`,
         userId: UserId,
+        status: Status,
+        approvedAt: ApprovedAt ?? null,
       };
       setUser(loggedInUser);
-      return { success: true, role };
+      return { success: true, role, status: Status };
     } catch (err: any) {
       return { success: false, error: err.message || 'Invalid email or password' };
     }

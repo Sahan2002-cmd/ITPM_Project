@@ -1,9 +1,12 @@
 import { useState, useEffect } from "react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts";
-import { DollarSign, Users, TrendingUp, Calendar, ArrowUpRight, BookOpen, Bell, Check, X, Award } from "lucide-react";
+import { DollarSign, Users, TrendingUp, Calendar, ArrowUpRight, BookOpen, Bell, Check, X, Award, AlertTriangle, AlertCircle } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { getBookingsByTutor, acceptBooking, declineBooking, completeBooking } from "../services/Module_02_API";
 import { submitEvaluation } from "../services/Module_04_API";
+import { getTutorProfileByUserId } from "../services/Module_01_API";
+import { expireRegistration } from "../services/UserAPI";
+import { useNavigate } from "react-router";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -35,12 +38,18 @@ function toSlstDateStr(utcStr: string): string {
 }
 
 export default function TutorDashboard() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNotifications, setShowNotifications] = useState(false);
   const [actionError, setActionError] = useState("");
   const [completingId, setCompletingId] = useState<number | null>(null);
+
+  // Registration deadline state
+  const [profileExists, setProfileExists] = useState<boolean | null>(null);
+  const [deadlineDaysLeft, setDeadlineDaysLeft] = useState<number | null>(null);
+  const [deadlineExpired, setDeadlineExpired] = useState(false);
 
   // Evaluation state
   const EVAL_FACTORS = ["Attendance", "Participation", "Understanding", "Behavior", "AssignmentCompletion"] as const;
@@ -74,7 +83,41 @@ export default function TutorDashboard() {
     }
   };
 
+  // Check whether tutor has completed their profile registration
+  const checkRegistrationDeadline = async () => {
+    if (!user?.userId || !user.approvedAt) return;
+
+    // Wrap only the API call — HTTP 404 (no profile exists yet) is treated as hasProfile=false
+    let hasProfile = false;
+    try {
+      const res = await getTutorProfileByUserId(user.userId);
+      hasProfile = res?.StatusCode === 1 && !!res.Data;
+    } catch {
+      // 404 or network error → treat as no profile found
+      hasProfile = false;
+    }
+
+    setProfileExists(hasProfile);
+
+    if (!hasProfile) {
+      const approvedDate = new Date(user.approvedAt.endsWith("Z") ? user.approvedAt : user.approvedAt + "Z");
+      const deadline = new Date(approvedDate.getTime() + 7 * 24 * 60 * 60 * 1000);
+      const now = new Date();
+      const daysLeft = Math.ceil((deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      if (daysLeft <= 0) {
+        setDeadlineExpired(true);
+        // Expire the account then log out
+        try { await expireRegistration(user.userId!); } catch { /* ignore */ }
+        logout();
+        navigate("/login");
+      } else {
+        setDeadlineDaysLeft(daysLeft);
+      }
+    }
+  };
+
   useEffect(() => { fetchBookings(); }, [user?.userId]);
+  useEffect(() => { checkRegistrationDeadline(); }, [user?.userId, user?.approvedAt]);
 
   const pendingBookings = bookings.filter(b => b.Status === "Pending");
   const confirmedBookings = bookings.filter(b => b.Status === "Confirmed");
@@ -179,6 +222,39 @@ export default function TutorDashboard() {
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
+      {/* ── Registration deadline banner ──────────────────────────── */}
+      {profileExists === false && deadlineDaysLeft !== null && !deadlineExpired && (
+        <div className={`mb-5 flex items-start gap-3 px-5 py-4 rounded-2xl border ${
+          deadlineDaysLeft <= 2
+            ? "bg-rose-50 border-rose-200 text-rose-800"
+            : "bg-amber-50 border-amber-200 text-amber-800"
+        }`}>
+          {deadlineDaysLeft <= 2
+            ? <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+            : <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />}
+          <div className="flex-1">
+            <p className="font-semibold text-sm">
+              {deadlineDaysLeft <= 2
+                ? `Urgent: only ${deadlineDaysLeft} day${deadlineDaysLeft === 1 ? "" : "s"} left to complete your profile!`
+                : `Complete your tutor profile — ${deadlineDaysLeft} day${deadlineDaysLeft === 1 ? "" : "s"} remaining`}
+            </p>
+            <p className="text-xs mt-0.5 opacity-80">
+              Your account was approved with a 7-day window to complete registration. After the deadline your account will be deactivated.
+            </p>
+          </div>
+          <button
+            onClick={() => navigate("/tutor/register")}
+            className={`flex-shrink-0 px-4 py-2 rounded-xl text-xs font-semibold transition-colors ${
+              deadlineDaysLeft <= 2
+                ? "bg-rose-600 text-white hover:bg-rose-700"
+                : "bg-amber-500 text-white hover:bg-amber-600"
+            }`}
+          >
+            Complete Registration
+          </button>
+        </div>
+      )}
+
       {/* ── Evaluation Modal ──────────────────────────────────────── */}
       {evaluatingBooking && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">

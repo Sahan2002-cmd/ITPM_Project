@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Web;
@@ -12,7 +12,6 @@ namespace PeerLearningAndTutorialSystem.Models.RequestApiModels
         public string Email { get; set; }
         public string Password { get; set; }
         public int? RoleId { get; set; }
-        public string ProfileImage { get; set; }
 
         // Login
         // Email is reused above
@@ -25,11 +24,6 @@ namespace PeerLearningAndTutorialSystem.Models.RequestApiModels
         // Admin edit / status update
         public int? UserId { get; set; }
         public string Status { get; set; }
-
-        // New fields
-        public string Center { get; set; }          // Malabe, Matara, Jaffna, Kandy
-        public string Semester { get; set; }        // "1st Semester", "2nd Semester" (for students)
-        public bool ConfirmDetails { get; set; }    // Checkbox for "above filling details are correct"
 
         // Forgot password / OTP flow
         public string OtpCode { get; set; }

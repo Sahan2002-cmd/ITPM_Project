@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
-import { useParams, Link } from "react-router";
-import { Clock, BookOpen, MessageSquare, BadgeCheck, Calendar, Award, Users, ThumbsUp, ChevronRight, Loader2, Star } from "lucide-react";
+import { useParams, Link, useNavigate } from "react-router";
+import { Clock, BookOpen, MessageSquare, BadgeCheck, Calendar, Award, Users, ThumbsUp, ChevronRight, Loader2, Star, ArrowLeft } from "lucide-react";
+import { useAuth } from "../contexts/AuthContext";
 import { getTutorProfileById } from "../services/Module_01_API";
 import { getRatingsByTutor } from "../services/Module_04_API";
 
@@ -37,6 +38,8 @@ function toSlstDateStr(utcStr: string) {
 
 export default function TutorProfile() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const [tutor, setTutor] = useState<TutorProfile | null>(null);
   const [ratings, setRatings] = useState<ApprovedRating[]>([]);
   const [loading, setLoading] = useState(true);
@@ -78,6 +81,13 @@ export default function TutorProfile() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
+      {/* Back button */}
+      <button
+        onClick={() => navigate(-1)}
+        className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 mb-4 transition-colors"
+      >
+        <ArrowLeft className="w-4 h-4" /> Back
+      </button>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: Profile Info */}
         <div className="lg:col-span-2 space-y-5">
@@ -241,7 +251,7 @@ export default function TutorProfile() {
               className="w-full flex items-center justify-center gap-2 py-3 bg-violet-600 text-white rounded-xl font-medium text-sm hover:bg-violet-700 transition-colors shadow-md shadow-violet-200">
               Book a Session <ChevronRight className="w-4 h-4" />
             </Link>
-            <Link to="/chat" className="w-full flex items-center justify-center gap-2 py-2.5 mt-2 border border-slate-200 text-slate-700 rounded-xl font-medium text-sm hover:bg-slate-50 transition-colors">
+            <Link to={user?.role === "student" ? "/student/chat" : "/tutor/chat"} className="w-full flex items-center justify-center gap-2 py-2.5 mt-2 border border-slate-200 text-slate-700 rounded-xl font-medium text-sm hover:bg-slate-50 transition-colors">
               <MessageSquare className="w-4 h-4 text-violet-500" /> Send Message
             </Link>
             <p className="text-xs text-center text-slate-400 mt-3">Free cancellation up to 2 hours before</p>

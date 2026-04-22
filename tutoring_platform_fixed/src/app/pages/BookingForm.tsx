@@ -2,7 +2,6 @@
 import { useParams, useNavigate } from "react-router";
 import { Calendar, Clock, ChevronLeft, ChevronRight, Users, User, Check, Plus, Trash2, AlertCircle, Loader2, BadgeCheck } from "lucide-react";
 import { getTutorProfileById, getAvailabilityByTutor } from "../services/Module_01_API";
-import { createBooking } from "../services/Module_02_API";
 import { useAuth } from "../contexts/AuthContext";
 
 interface TutorProfile {
@@ -56,8 +55,6 @@ export default function BookingForm() {
   const [slots, setSlots] = useState<AvailabilitySlot[]>([]);
   const [loadingTutor, setLoadingTutor] = useState(true);
   const [loadingSlots, setLoadingSlots] = useState(true);
-  const [submitLoading, setSubmitLoading] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const today = new Date();
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
@@ -138,40 +135,28 @@ export default function BookingForm() {
     return Object.keys(errs).length === 0;
   };
 
-  const handleConfirm = async () => {
+  const handleConfirm = () => {
     if (!validate() || !tutor || !selectedSlot || !user?.userId) return;
-    setSubmitLoading(true);
-    setSubmitError(null);
-    try {
-      const res = await createBooking({
-        AvailabilityId: selectedSlot.Id,
-        TutorProfileId: tutor.Id,
-        TutorId: tutor.UserId,
-        StudentId: user.userId,
-      });
-      const slstDate = new Date(new Date(selectedSlot.Date).getTime() + 5.5 * 60 * 60 * 1000)
-        .toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
-      const durationMinutes = Math.round(
-        (new Date(selectedSlot.EndTime).getTime() - new Date(selectedSlot.StartTime).getTime()) / 60000
-      );
-      navigate("/student/booking-confirmation", {
-        state: {
-          bookingId: res?.Data?.BookingId ?? null,
-          tutorName: tutor.FullName,
-          subjects: tutor.SubjectsTaught ?? [],
-          sessionDate: slstDate,
-          startTime: toSlstTime(selectedSlot.StartTime),
-          endTime: toSlstTime(selectedSlot.EndTime),
-          sessionType,
-          price,
-          durationMinutes,
-        },
-      });
-    } catch (err: any) {
-      setSubmitError(err.message || "Booking failed. Please try again.");
-    } finally {
-      setSubmitLoading(false);
-    }
+    const slstDate = new Date(selectedSlot.Date)
+      .toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "Asia/Colombo" });
+    const durationMinutes = Math.round(
+      (new Date(selectedSlot.EndTime).getTime() - new Date(selectedSlot.StartTime).getTime()) / 60000
+    );
+    navigate("/student/payment", {
+      state: {
+        tutorId:         tutor.Id,
+        tutorName:       tutor.FullName,
+        subjects:        tutor.SubjectsTaught ?? [],
+        sessionDate:     slstDate,
+        startTime:       toSlstTime(selectedSlot.StartTime),
+        endTime:         toSlstTime(selectedSlot.EndTime),
+        sessionType,
+        price,
+        durationMinutes,
+        selectedSlotId:  selectedSlot.Id,
+        tutorUserId:     tutor.UserId,
+      },
+    });
   };
 
   if (loadingTutor) {
@@ -454,18 +439,12 @@ export default function BookingForm() {
               </div>
             </div>
 
-            {submitError && (
-              <p className="mt-3 text-xs text-rose-600 flex items-center gap-1">
-                <AlertCircle className="w-3.5 h-3.5" /> {submitError}
-              </p>
-            )}
-
             <button
               onClick={handleConfirm}
-              disabled={!selectedDay || !selectedSlot || submitLoading}
+              disabled={!selectedDay || !selectedSlot}
               className="w-full mt-5 py-3 bg-violet-600 text-white rounded-xl font-medium text-sm hover:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-md shadow-violet-200 flex items-center justify-center gap-2"
             >
-              {submitLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Booking...</> : "Confirm Booking"}
+              Proceed to Payment
             </button>
             <p className="text-xs text-center text-slate-400 mt-2">Free cancellation up to 2 hours before</p>
           </div>
