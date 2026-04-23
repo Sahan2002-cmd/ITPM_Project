@@ -1,4 +1,4 @@
-﻿using MongoDB.Driver;
+using MongoDB.Driver;
 using PeerLearningAndTutorialSystem.DatabaseConnectivity;
 
 namespace PeerLearningAndTutorialSystem.DatabaseConnectivity
@@ -31,6 +31,7 @@ namespace PeerLearningAndTutorialSystem.DatabaseConnectivity
 
         public static int GetNextSequence(string counterId)
         {
+            EnsureCounter(counterId);
             var filter = Builders<Counter>.Filter.Eq(c => c.Id, counterId);
             var update = Builders<Counter>.Update.Inc(c => c.Seq, 1);
             var options = new FindOneAndUpdateOptions<Counter> { ReturnDocument = ReturnDocument.After };

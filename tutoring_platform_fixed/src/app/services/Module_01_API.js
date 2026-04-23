@@ -58,7 +58,7 @@ const handleResponse = async (res) => {
  * @param {string[]} profileData.languages
  */
 export const createTutorProfile = async (profileData) => {
-  const res = await fetch(`${BASE_URL}/tutorprofile`, {
+  const res = await fetch(`${BASE_URL}/tutorprofile/create`, {
     method: "POST",
     headers: getAuthHeaders(),
     body: JSON.stringify(profileData),
@@ -85,7 +85,7 @@ export const getTutorProfileById = async (tutorId) => {
  * @param {number} userId
  */
 export const getTutorProfileByUserId = async (userId) => {
-  const res = await fetch(`${BASE_URL}/tutorprofile/by-userid/${userId}`, {
+  const res = await fetch(`${BASE_URL}/tutorprofile/user/${userId}`, {
     headers: getAuthHeaders(),
   });
   return handleResponse(res);

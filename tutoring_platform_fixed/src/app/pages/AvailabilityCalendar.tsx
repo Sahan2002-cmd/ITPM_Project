@@ -4,10 +4,11 @@ import { useAuth } from "../contexts/AuthContext";
 import { getTutorProfileByUserId, createAvailabilitySlot, getAvailabilityByTutor, deleteAvailabilitySlot } from "../services/Module_01_API";
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-const HOURS = Array.from({ length: 24 }, (_, i) => {
-  const h = i % 12 || 12;
-  const ampm = i < 12 ? "AM" : "PM";
-  return `${h}:00 ${ampm}`;
+const HOURS = Array.from({ length: 48 }, (_, i) => {
+  const h = Math.floor(i / 2) % 12 || 12;
+  const m = i % 2 === 0 ? "00" : "30";
+  const ampm = i < 24 ? "AM" : "PM";
+  return `${h}:${m} ${ampm}`;
 });
 
 const DAY_TO_DOW: Record<string, number> = {
@@ -303,8 +304,8 @@ export default function AvailabilityCalendar() {
     <div className="p-6 max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Availability Calendar</h1>
-          <p className="text-slate-500 mt-1">Set your weekly availability for tutoring sessions</p>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Availability Calendar</h1>
+          <p className="text-slate-500 dark:text-slate-400 mt-1">Set your weekly availability for tutoring sessions</p>
         </div>
         <div className="flex flex-col items-end gap-1.5">
           <div className="flex items-center gap-2">
@@ -333,35 +334,35 @@ export default function AvailabilityCalendar() {
       </div>
 
       {/* Stats & Timezone */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
-        <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
-          <p className="text-sm text-slate-500">Days Available</p>
-          <p className="text-2xl font-bold text-violet-600 mt-1">{Object.values(enabled).filter(Boolean).length}</p>
-          <p className="text-xs text-slate-400">per week</p>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 shadow-sm">
+          <p className="text-sm text-slate-500 dark:text-slate-400">Days Available</p>
+          <p className="text-2xl font-bold text-violet-600 dark:text-violet-400 mt-1">{Object.values(enabled).filter(Boolean).length}</p>
+          <p className="text-xs text-slate-400 dark:text-slate-500">per week</p>
         </div>
-        <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
-          <p className="text-sm text-slate-500">Total Slots</p>
-          <p className="text-2xl font-bold text-emerald-600 mt-1">{totalSlots}</p>
-          <p className="text-xs text-slate-400">time slots set</p>
+        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 shadow-sm">
+          <p className="text-sm text-slate-500 dark:text-slate-400">Total Slots</p>
+          <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">{totalSlots}</p>
+          <p className="text-xs text-slate-400 dark:text-slate-500">time slots set</p>
         </div>
-        <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
-          <p className="text-sm text-slate-500 mb-2">Timezone</p>
-          <p className="text-sm font-semibold text-slate-800">Sri Lanka (SLST)</p>
-          <p className="text-xs text-slate-400 mt-0.5">GMT+5:30 — all times are SLST</p>
+        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 shadow-sm">
+          <p className="text-sm text-slate-500 dark:text-slate-400 mb-2">Timezone</p>
+          <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">Sri Lanka (SLST)</p>
+          <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">GMT+5:30 — all times are SLST</p>
         </div>
       </div>
 
       {/* Validation summary banner */}
       {Object.keys(slotErrors).length > 0 && (
-        <div className="mb-4 p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-2">
+        <div className="mb-4 p-3 bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800/30 rounded-xl flex items-start gap-2">
           <AlertCircle className="w-4 h-4 text-rose-500 flex-shrink-0 mt-0.5" />
           <div>
-            <p className="text-sm font-medium text-rose-700">There are slot conflicts to fix:</p>
+            <p className="text-sm font-medium text-rose-700 dark:text-rose-400">There are slot conflicts to fix:</p>
             <ul className="mt-1 space-y-0.5">
               {Object.entries(slotErrors).map(([key, msg]) => {
                 const [day, idx] = key.split("-");
                 return (
-                  <li key={key} className="text-xs text-rose-600">{day} · Slot {Number(idx) + 1}: {msg}</li>
+                  <li key={key} className="text-xs text-rose-600 dark:text-rose-400/80">{day} · Slot {Number(idx) + 1}: {msg}</li>
                 );
               })}
             </ul>
@@ -372,14 +373,14 @@ export default function AvailabilityCalendar() {
       {/* Weekly Schedule */}
       <div className="space-y-3">
         {DAYS.map(day => (
-          <div key={day} className={`bg-white rounded-2xl border transition-all ${enabled[day] ? "border-slate-200 shadow-sm" : "border-slate-100 opacity-60"}`}>
+          <div key={day} className={`bg-white dark:bg-slate-800 rounded-2xl border transition-all ${enabled[day] ? "border-slate-200 dark:border-slate-700 shadow-sm" : "border-slate-100 dark:border-slate-800/50 opacity-60"}`}>
             <div className="flex items-start gap-4 p-4">
               {/* Toggle */}
-              <button onClick={() => toggleDay(day)} className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 mt-1 ${enabled[day] ? "bg-violet-600" : "bg-slate-200"}`}>
-                <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${enabled[day] ? "translate-x-6" : "translate-x-1"}`} />
+              <button onClick={() => toggleDay(day)} className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 mt-1 ${enabled[day] ? "bg-violet-600" : "bg-slate-200 dark:bg-slate-700"}`}>
+                <span className={`absolute top-1 w-4 h-4 bg-white dark:bg-slate-200 rounded-full shadow transition-transform ${enabled[day] ? "translate-x-6" : "translate-x-1"}`} />
               </button>
 
-              <span className={`w-24 text-sm font-semibold flex-shrink-0 mt-1 ${enabled[day] ? "text-slate-800" : "text-slate-400"}`}>{day}</span>
+              <span className={`w-24 text-sm font-semibold flex-shrink-0 mt-1 ${enabled[day] ? "text-slate-800 dark:text-slate-200" : "text-slate-400 dark:text-slate-600"}`}>{day}</span>
 
               {enabled[day] ? (
                 <div className="flex-1 space-y-2">
@@ -388,41 +389,41 @@ export default function AvailabilityCalendar() {
                     const hasError = !!slotErrors[errKey];
                     return (
                       <div key={idx}>
-                        <div className={`flex items-center gap-2 p-2 rounded-xl transition-colors ${hasError ? "bg-rose-50 border border-rose-200" : ""}`}>
-                          <Clock className={`w-3.5 h-3.5 flex-shrink-0 ${hasError ? "text-rose-400" : "text-violet-400"}`} />
+                        <div className={`flex items-center gap-2 p-2 rounded-xl transition-colors ${hasError ? "bg-rose-50 dark:bg-rose-900/10 border border-rose-200 dark:border-rose-900/30" : ""}`}>
+                          <Clock className={`w-3.5 h-3.5 flex-shrink-0 ${hasError ? "text-rose-400" : "text-violet-400 dark:text-violet-500"}`} />
                           <select
                             value={slot.start}
                             onChange={e => updateSlot(day, idx, "start", e.target.value)}
-                            className={`flex-1 text-sm border rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-violet-500/20 bg-slate-50 ${hasError ? "border-rose-300" : "border-slate-200"}`}
+                            className={`flex-1 text-sm border rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-violet-500/20 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 ${hasError ? "border-rose-300 dark:border-rose-800" : "border-slate-200 dark:border-slate-700"}`}
                           >
                             {HOURS.map(h => <option key={h}>{h}</option>)}
                           </select>
-                          <span className="text-xs text-slate-400 flex-shrink-0">to</span>
+                          <span className="text-xs text-slate-400 dark:text-slate-500 flex-shrink-0">to</span>
                           <select
                             value={slot.end}
                             onChange={e => updateSlot(day, idx, "end", e.target.value)}
-                            className={`flex-1 text-sm border rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-violet-500/20 bg-slate-50 ${hasError ? "border-rose-300" : "border-slate-200"}`}
+                            className={`flex-1 text-sm border rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-violet-500/20 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 ${hasError ? "border-rose-300 dark:border-rose-800" : "border-slate-200 dark:border-slate-700"}`}
                           >
                             {HOURS.map(h => <option key={h}>{h}</option>)}
                           </select>
-                          <button onClick={() => removeSlot(day, idx)} className="p-1.5 hover:bg-rose-50 rounded-lg text-slate-400 hover:text-rose-500 transition-colors flex-shrink-0">
+                          <button onClick={() => removeSlot(day, idx)} className="p-1.5 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg text-slate-400 dark:text-slate-600 hover:text-rose-500 dark:hover:text-rose-400 transition-colors flex-shrink-0">
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
                         {hasError && (
-                          <p className="text-xs text-rose-600 flex items-center gap-1 mt-1 ml-6">
+                          <p className="text-xs text-rose-600 dark:text-rose-400 flex items-center gap-1 mt-1 ml-6">
                             <AlertCircle className="w-3 h-3 flex-shrink-0" /> {slotErrors[errKey]}
                           </p>
                         )}
                       </div>
                     );
                   })}
-                  <button onClick={() => addSlot(day)} className="flex items-center gap-1.5 text-xs text-violet-600 font-medium hover:text-violet-800 transition-colors">
+                  <button onClick={() => addSlot(day)} className="flex items-center gap-1.5 text-xs text-violet-600 dark:text-violet-400 font-medium hover:text-violet-800 dark:hover:text-violet-300 transition-colors">
                     <Plus className="w-3.5 h-3.5" /> Add time slot
                   </button>
                 </div>
               ) : (
-                <span className="text-sm text-slate-400 mt-1">Not available</span>
+                <span className="text-sm text-slate-400 dark:text-slate-600 mt-1">Not available</span>
               )}
             </div>
           </div>
@@ -430,12 +431,12 @@ export default function AvailabilityCalendar() {
       </div>
 
       {/* Session Preferences */}
-      <div className="mt-5 bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
-        <h3 className="font-semibold text-slate-800 mb-4 flex items-center gap-2"><Clock className="w-4 h-4 text-violet-600" /> Session Preferences</h3>
-        <div className="grid grid-cols-2 gap-4">
+      <div className="mt-5 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+        <h3 className="font-semibold text-slate-800 dark:text-slate-100 mb-4 flex items-center gap-2"><Clock className="w-4 h-4 text-violet-600 dark:text-violet-400" /> Session Preferences</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Buffer Between Sessions</label>
-            <select className="w-full text-sm border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-violet-500/20 bg-white">
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Buffer Between Sessions</label>
+            <select className="w-full text-sm border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-violet-500/20 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
               <option>No buffer</option>
               <option>5 minutes</option>
               <option>10 minutes</option>
@@ -444,8 +445,8 @@ export default function AvailabilityCalendar() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Max Sessions Per Day</label>
-            <select className="w-full text-sm border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-violet-500/20 bg-white">
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Max Sessions Per Day</label>
+            <select className="w-full text-sm border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-violet-500/20 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
               <option>No limit</option>
               <option>2 sessions</option>
               <option>3 sessions</option>
