@@ -22,13 +22,17 @@ export default function BrowseTutors() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [showPending, setShowPending] = useState(false);
   const [selectedSubject, setSelectedSubject] = useState("All");
   const [priceRange, setPriceRange] = useState("All");
   const [sortBy, setSortBy] = useState("name");
 
   useEffect(() => {
     getAllTutors()
-      .then((res: any) => setTutors(res.Data ?? res ?? []))
+      .then((res: any) => {
+        const data = res.Data ?? res ?? [];
+        setTutors(Array.isArray(data) ? data : []);
+      })
       .catch((err: any) => setError(err.message || "Failed to load tutors"))
       .finally(() => setLoading(false));
   }, []);
@@ -38,6 +42,7 @@ export default function BrowseTutors() {
 
   const filtered = tutors
     .filter((t) => {
+      const isVisible = showPending ? true : t.Status === "Active";
       const matchSearch =
         t.FullName.toLowerCase().includes(search.toLowerCase()) ||
         (t.SubjectsTaught ?? []).some(s => s.toLowerCase().includes(search.toLowerCase()));
@@ -47,7 +52,7 @@ export default function BrowseTutors() {
         (priceRange === "<2000" && t.HourlyRate < 2000) ||
         (priceRange === "2000-3500" && t.HourlyRate >= 2000 && t.HourlyRate <= 3500) ||
         (priceRange === ">3500" && t.HourlyRate > 3500);
-      return matchSearch && matchSubject && matchPrice;
+      return isVisible && matchSearch && matchSubject && matchPrice;
     })
     .sort((a, b) =>
       sortBy === "price_low" ? a.HourlyRate - b.HourlyRate :
@@ -58,9 +63,17 @@ export default function BrowseTutors() {
   return (
     <div className="p-6 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">Browse Tutors</h1>
-        <p className="text-slate-500 mt-1">Find the perfect tutor for your learning goals</p>
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Browse Tutors</h1>
+          <p className="text-slate-500 mt-1">Find the perfect tutor for your learning goals</p>
+        </div>
+        <button 
+          onClick={() => setShowPending(!showPending)}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors border ${showPending ? "bg-amber-50 border-amber-200 text-amber-700" : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"}`}
+        >
+          {showPending ? "Showing All Profiles" : "Show Pending Profiles (Test Mode)"}
+        </button>
       </div>
 
       {/* Search & Filters */}
@@ -128,7 +141,17 @@ export default function BrowseTutors() {
           </div>
 
           {filtered.length === 0 ? (
-            <div className="text-center py-20 text-slate-400">No tutors match your filters.</div>
+            <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-slate-200">
+              <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Search className="w-8 h-8 text-slate-300" />
+              </div>
+              <p className="text-slate-600 font-medium">No tutors found matching your criteria.</p>
+              <p className="text-slate-400 text-sm mt-1 max-w-xs mx-auto">
+                {showPending 
+                  ? "Try adjusting your search filters or subjects." 
+                  : "Some tutors might still be awaiting admin approval. Click 'Show Pending' to see them."}
+              </p>
+            </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 gap-5">
               {filtered.map((tutor) => (
