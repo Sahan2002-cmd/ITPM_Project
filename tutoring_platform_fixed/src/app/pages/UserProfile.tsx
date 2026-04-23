@@ -39,7 +39,7 @@ export default function UserProfile() {
   const [isSaving, setIsSaving] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState(user?.avatar || '');
   
-  const [tutorProfileId, setTutorProfileId] = useState<string | null>(null);
+  const [tutorProfileId, setTutorProfileId] = useState<number | null>(null);
 
   // Reviews state
   const [myRatings, setMyRatings] = useState<any[]>([]);
@@ -786,7 +786,7 @@ export default function UserProfile() {
 }
 
 // ── Sub-component: tutor's received reviews (their own profile view) ─────────
-function TutorReceivedReviews({ tutorProfileId }: { tutorProfileId: string }) {
+function TutorReceivedReviews({ tutorProfileId }: { tutorProfileId: number }) {
   const [reviews, setReviews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 

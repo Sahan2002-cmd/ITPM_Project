@@ -101,8 +101,9 @@ export default function TutorDashboard() {
   const handleAccept = async (bookingId: number) => {
     if (!bookingId) { setActionError("Booking ID missing."); return; }
     if (!user?.userId) { setActionError("User session missing. Please log in again."); return; }
+    const uid = user.userId;
     setActionError("");
-    const res = await acceptBooking(bookingId, user.userId);
+    const res = await acceptBooking(bookingId, uid);
     if (res?.StatusCode === 1) {
       await fetchBookings();
     } else {
@@ -113,8 +114,9 @@ export default function TutorDashboard() {
   const handleDecline = async (bookingId: number) => {
     if (!bookingId) { setActionError("Booking ID missing."); return; }
     if (!user?.userId) { setActionError("User session missing. Please log in again."); return; }
+    const uid = user.userId;
     setActionError("");
-    const res = await declineBooking(bookingId, user.userId);
+    const res = await declineBooking(bookingId, uid);
     if (res?.StatusCode === 1) {
       await fetchBookings();
     } else {

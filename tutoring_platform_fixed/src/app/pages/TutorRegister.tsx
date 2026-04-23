@@ -16,7 +16,7 @@ type FormState = {
 };
 
 type ProfileData = {
-  Id?: string; UserId?: number; FullName?: string; Email?: string;
+  Id?: number; UserId?: number; FullName?: string; Email?: string;
   Bio?: string; HourlyRate?: number; SubjectsTaught?: string[];
   Languages?: string[]; Status?: string; IsVerified?: boolean;
   Qualifications?: string[]; CreatedAt?: string;

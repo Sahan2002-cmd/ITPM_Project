@@ -70,6 +70,8 @@ export const uploadRecording = async (sessionId, tutorId, file, title, subject, 
   return handleResponse(res);
 };
 
+export const createRecordingFromMedia = uploadRecording;
+
 // ── READ ──────────────────────────────────────────────────
 
 /**
@@ -78,6 +80,20 @@ export const uploadRecording = async (sessionId, tutorId, file, title, subject, 
  */
 export const getRecordingById = async (recordingId) => {
   const res = await fetch(`${BASE_URL}/recordings/${recordingId}`, {
+    headers: getAuthHeaders(),
+  });
+  return handleResponse(res);
+};
+
+export const getRecordingBySession = async (sessionId) => {
+  const res = await fetch(`${BASE_URL}/recordings/session/${sessionId}`, {
+    headers: getAuthHeaders(),
+  });
+  return handleResponse(res);
+};
+
+export const getRecordingStreamUrl = async (recordingId) => {
+  const res = await fetch(`${BASE_URL}/recordings/${recordingId}/stream`, {
     headers: getAuthHeaders(),
   });
   return handleResponse(res);
@@ -192,6 +208,8 @@ export const getMeetingById = async (meetingId) => {
   return handleResponse(res);
 };
 
+export const getMeeting = getMeetingById;
+
 /**
  * Create a new meeting.
  * POST /api/meetings
@@ -298,6 +316,22 @@ export const adminHardDeleteRecording = async (recordingId, adminId, reason) => 
     method: "DELETE",
     headers: getAuthHeaders(),
     body: JSON.stringify({ adminId, reason }),
+  });
+  return handleResponse(res);
+};
+
+export const getModerationReportById = async (reportId) => {
+  const res = await fetch(`${BASE_URL}/moderation/reports/${reportId}`, {
+    headers: getAuthHeaders(),
+  });
+  return handleResponse(res);
+};
+
+export const restoreRecording = async (recordingId, adminId, notes = "") => {
+  const res = await fetch(`${BASE_URL}/recordings/${recordingId}/restore`, {
+    method: "PATCH",
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ adminId, adminNote: notes }),
   });
   return handleResponse(res);
 };
