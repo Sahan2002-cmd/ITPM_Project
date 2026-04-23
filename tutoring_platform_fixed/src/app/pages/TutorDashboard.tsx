@@ -100,8 +100,9 @@ export default function TutorDashboard() {
 
   const handleAccept = async (bookingId: number) => {
     if (!bookingId) { setActionError("Booking ID missing."); return; }
+    if (!user?.userId) { setActionError("User session missing. Please log in again."); return; }
     setActionError("");
-    const res = await acceptBooking(bookingId, user?.userId);
+    const res = await acceptBooking(bookingId, user.userId);
     if (res?.StatusCode === 1) {
       await fetchBookings();
     } else {
@@ -111,8 +112,9 @@ export default function TutorDashboard() {
 
   const handleDecline = async (bookingId: number) => {
     if (!bookingId) { setActionError("Booking ID missing."); return; }
+    if (!user?.userId) { setActionError("User session missing. Please log in again."); return; }
     setActionError("");
-    const res = await declineBooking(bookingId, user?.userId);
+    const res = await declineBooking(bookingId, user.userId);
     if (res?.StatusCode === 1) {
       await fetchBookings();
     } else {
@@ -311,13 +313,13 @@ export default function TutorDashboard() {
                           </div>
                           <div className="flex gap-2 mt-2.5">
                             <button
-                              onClick={() => handleAccept(b.BookingId)}
+                              onClick={() => b.BookingId && handleAccept(b.BookingId)}
                               className="flex items-center gap-1 px-3 py-1.5 bg-emerald-600 text-white text-xs font-semibold rounded-lg hover:bg-emerald-700 transition-colors"
                             >
                               <Check className="w-3 h-3" /> Approve
                             </button>
                             <button
-                              onClick={() => handleDecline(b.BookingId)}
+                              onClick={() => b.BookingId && handleDecline(b.BookingId)}
                               className="flex items-center gap-1 px-3 py-1.5 bg-rose-100 text-rose-600 text-xs font-semibold rounded-lg hover:bg-rose-200 transition-colors"
                             >
                               <X className="w-3 h-3" /> Reject
@@ -424,7 +426,7 @@ export default function TutorDashboard() {
                       </div>
                     </div>
                     <button
-                      onClick={() => handleComplete(b.BookingId)}
+                      onClick={() => b.BookingId && handleComplete(b.BookingId)}
                       disabled={completingId === b.BookingId}
                       className="w-full flex items-center justify-center gap-1.5 py-1.5 bg-emerald-600 text-white text-xs font-semibold rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50"
                     >
