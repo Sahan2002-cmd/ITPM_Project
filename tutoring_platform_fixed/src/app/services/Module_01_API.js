@@ -85,7 +85,7 @@ export const getTutorProfileById = async (tutorId) => {
  * @param {number} userId
  */
 export const getTutorProfileByUserId = async (userId) => {
-  const res = await fetch(`${BASE_URL}/tutorprofile/user/${userId}`, {
+  const res = await fetch(`${BASE_URL}/tutorprofile/by-userid/${userId}`, {
     headers: getAuthHeaders(),
   });
   return handleResponse(res);
@@ -313,6 +313,23 @@ export const deleteAvailabilitySlot = async (slotId) => {
   const res = await fetch(`${BASE_URL}/availability/${slotId}`, {
     method: "DELETE",
     headers: getAuthHeaders(),
+  });
+  return handleResponse(res);
+};
+
+// ══════════════════════════════════════════════════════════
+// USER PROFILE & IMAGE
+// ══════════════════════════════════════════════════════════
+
+/**
+ * Upload or update the user's profile image.
+ * @param {string} imageBase64 - The image data as a base64 string
+ */
+export const uploadProfileImage = async (imageBase64) => {
+  const res = await fetch(`${BASE_URL}/user/upload-profile-image`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ imageBase64 }),
   });
   return handleResponse(res);
 };

@@ -17,7 +17,7 @@ export default function SubjectSelection() {
   const { user } = useAuth();
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
-  const [profileId, setProfileId] = useState<number | null>(null);
+  const [profileId, setProfileId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../contexts/AuthContext';
-import { getTutorProfileByUserId, updateTutorProfile } from '../services/Module_01_API';
+import { getTutorProfileByUserId, updateTutorProfile, uploadProfileImage } from '../services/Module_01_API';
 import { getRatingsByStudent, getRatingsByTutor, updateRating } from '../services/Module_04_API';
 import { motion } from 'motion/react';
 import { 
@@ -33,13 +33,13 @@ interface ProfileData {
 }
 
 export default function UserProfile() {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState(user?.avatar || '');
   
-  const [tutorProfileId, setTutorProfileId] = useState<number | null>(null);
+  const [tutorProfileId, setTutorProfileId] = useState<string | null>(null);
 
   // Reviews state
   const [myRatings, setMyRatings] = useState<any[]>([]);
@@ -172,6 +172,18 @@ export default function UserProfile() {
           YearsOfExperience: parseInt(profileData.experience || '0', 10),
         });
       }
+
+      // ── Persistent Avatar Update ────────────────────────────────
+      if (avatarPreview && avatarPreview !== user?.avatar) {
+        await uploadProfileImage(avatarPreview);
+        updateUser({ avatar: avatarPreview });
+      }
+
+      // Also update name in AuthContext if changed
+      if (profileData.name !== user?.name) {
+        updateUser({ name: profileData.name });
+      }
+
       setOriginalData(profileData);
       setIsEditing(false);
       toast.success('Profile updated successfully!', {
