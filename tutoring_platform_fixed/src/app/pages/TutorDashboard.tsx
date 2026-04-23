@@ -99,8 +99,9 @@ export default function TutorDashboard() {
   });
 
   const handleAccept = async (bookingId: number) => {
+    if (!bookingId) { setActionError("Booking ID missing."); return; }
     setActionError("");
-    const res = await acceptBooking(bookingId);
+    const res = await acceptBooking(bookingId, user?.userId);
     if (res?.StatusCode === 1) {
       await fetchBookings();
     } else {
@@ -109,8 +110,9 @@ export default function TutorDashboard() {
   };
 
   const handleDecline = async (bookingId: number) => {
+    if (!bookingId) { setActionError("Booking ID missing."); return; }
     setActionError("");
-    const res = await declineBooking(bookingId);
+    const res = await declineBooking(bookingId, user?.userId);
     if (res?.StatusCode === 1) {
       await fetchBookings();
     } else {

@@ -1,86 +1,70 @@
 /**
  * Module_05_API.js — Service Layer
- * Module 5: Session Recording & Moderation (Member 5)
- * Backend: RecordingController.cs, DashboardController.cs
- *          → DARecording.cs, DADashboard.cs
- *          → PLT_RECORDING_PROC.sql, PLT_DASHBOARD_PROC.sql
+ * Module 5: Session Recording, Meetings & Moderation (Member 5)
+ * Backend: Node.js Express (port 4000)
+ *          Routes: /api/recordings, /api/meetings, /api/moderation/reports
  *
  * Covers CRUD:
  *   Recording   → Create (upload), Read, Delete (tutor own / admin hard)
+ *   Meeting     → Create, Read, Update (status / isLive)
  *   Moderation  → Create (flag), Read (admin all), Update (flag/restore/hard-delete)
- *
- * Key Validation Rules (from Validation_Notes_By_Member.txt):
- *   - Upload permission: only the tutor who conducted that specific session
- *   - Timing: only after session status = "Completed"
- *   - File types: MP4, MOV, WEBM, MP3, WAV only
- *   - Max file size: 100 MB
- *   - One active recording per session
- *   - Status on upload: "Active"
- *   - Students can only view recordings from their OWN sessions
- *   - Admin can read ALL recordings
- *   - Flag → status = "Flagged" → immediately hidden from student
- *   - Restore → status back to "Active"
- *   - Admin hard-delete must log a moderation reason
- *   - Auto-delete: recordings older than 30 days (background job — not a manual action)
- *   - Student is notified before auto-deletion
  */
 
-const BASE_URL = "http://localhost:4000";
+const BASE_URL = "http://localhost:4000/api";
 
 const getAuthHeaders = () => {
-  const token = localStorage.getItem("token");
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
   return {
     "Content-Type": "application/json",
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    "x-user-role": user.role || "student",
+    "x-user-name": user.name || "Guest User",
+    "x-user-email": user.email || "",
+    "x-user-avatar": user.avatar || "",
+  };
+};
+
+const getAuthHeadersNoContentType = () => {
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  return {
+    "x-user-role": user.role || "student",
+    "x-user-name": user.name || "Guest User",
+    "x-user-email": user.email || "",
+    "x-user-avatar": user.avatar || "",
   };
 };
 
 const handleResponse = async (res) => {
   const data = await res.json();
   if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
-  return data;
+  return data.data !== undefined ? data.data : data;
 };
 
 // ══════════════════════════════════════════════════════════
 // RECORDING UPLOAD & MANAGEMENT
 // Pages: UploadRecording.tsx, RecordingsList.tsx, RecordingPlayback.tsx
+// Backend routes: /api/recordings
 // ══════════════════════════════════════════════════════════
 
 // ── CREATE ────────────────────────────────────────────────
 
 /**
  * Upload a session recording.
- * Only the tutor of that specific session can upload.
- * Only allowed after session status = "Completed".
- * Only one active recording per session — reject if one already exists.
- * Status is set to "Active" on upload.
- * Allowed types: MP4, MOV, WEBM, MP3, WAV | Max: 100 MB.
- * Sent as multipart/form-data.
- *
- * @param {number} sessionId
- * @param {number} tutorId          - Authorization: must be tutor of that session
- * @param {File} file               - The recording file
- * @param {string} title            - Display title for the recording
- * @param {string} subject
- * @param {string} [description]
- * @param {string} visibility       - e.g. "enrolled" (students of this session only)
- * @param {string[]} [tags]
+ * POST /api/recordings  (multipart/form-data)
  */
 export const uploadRecording = async (sessionId, tutorId, file, title, subject, description = "", visibility = "enrolled", tags = []) => {
-  const token = localStorage.getItem("token");
   const formData = new FormData();
-  formData.append("file", file);
-  formData.append("sessionId", sessionId);
-  formData.append("tutorId", tutorId);
+  formData.append("video", file);
+  if (sessionId) formData.append("sessionId", sessionId);
+  if (tutorId) formData.append("tutorId", tutorId);
   formData.append("title", title);
   formData.append("subject", subject);
   formData.append("description", description);
   formData.append("visibility", visibility);
   tags.forEach((tag) => formData.append("tags[]", tag));
 
-  const res = await fetch(`${BASE_URL}/recording`, {
+  const res = await fetch(`${BASE_URL}/recordings`, {
     method: "POST",
-    headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    headers: getAuthHeadersNoContentType(),
     body: formData,
   });
   return handleResponse(res);
@@ -90,53 +74,42 @@ export const uploadRecording = async (sessionId, tutorId, file, title, subject, 
 
 /**
  * Get a single recording by its ID.
- * Students can only access recordings from their OWN sessions (backend enforced).
- * @param {number} recordingId
- * @param {number} requesterId - For cross-session access validation
+ * GET /api/recordings/:id
  */
-export const getRecordingById = async (recordingId, requesterId) => {
-  const res = await fetch(
-    `${BASE_URL}/recording/${recordingId}?requesterId=${requesterId}`,
-    { headers: getAuthHeaders() }
-  );
+export const getRecordingById = async (recordingId) => {
+  const res = await fetch(`${BASE_URL}/recordings/${recordingId}`, {
+    headers: getAuthHeaders(),
+  });
   return handleResponse(res);
 };
 
 /**
- * Get the recording for a specific session.
- * @param {number} sessionId
- * @param {number} requesterId - studentId or tutorId for access validation
+ * List all recordings (with optional query filters).
+ * GET /api/recordings?search=&subject=&tutorEmail=
  */
-export const getRecordingBySession = async (sessionId, requesterId) => {
-  const res = await fetch(
-    `${BASE_URL}/recording/session/${sessionId}?requesterId=${requesterId}`,
-    { headers: getAuthHeaders() }
-  );
+export const listRecordings = async (filters = {}) => {
+  const params = new URLSearchParams(filters).toString();
+  const url = params ? `${BASE_URL}/recordings?${params}` : `${BASE_URL}/recordings`;
+  const res = await fetch(url, { headers: getAuthHeaders() });
   return handleResponse(res);
 };
 
 /**
- * Get all recordings accessible to a specific student (only their own sessions).
- * Returns only "Active" status recordings — "Flagged" and "Deleted" are hidden.
- * @param {number} studentId
- * @param {string} [subject]  - Optional filter
- * @param {string} [search]   - Optional text search
+ * Get all recordings accessible to a specific student.
  */
 export const getRecordingsByStudent = async (studentId, subject = "", search = "") => {
   const params = new URLSearchParams({ subject, search }).toString();
-  const res = await fetch(
-    `${BASE_URL}/recording/student/${studentId}?${params}`,
-    { headers: getAuthHeaders() }
-  );
+  const res = await fetch(`${BASE_URL}/recordings?${params}`, {
+    headers: getAuthHeaders(),
+  });
   return handleResponse(res);
 };
 
 /**
  * Get all recordings uploaded by a tutor.
- * @param {number} tutorId
  */
 export const getRecordingsByTutor = async (tutorId) => {
-  const res = await fetch(`${BASE_URL}/recording/tutor/${tutorId}`, {
+  const res = await fetch(`${BASE_URL}/recordings?tutorEmail=${encodeURIComponent(tutorId)}`, {
     headers: getAuthHeaders(),
   });
   return handleResponse(res);
@@ -144,41 +117,23 @@ export const getRecordingsByTutor = async (tutorId) => {
 
 /**
  * Admin-only: Get ALL recordings across the platform.
- * Includes Active, Flagged, and Deleted records.
- * @param {Object} [filters] - { status?, tutorId?, startDate?, endDate? }
  */
 export const getAllRecordingsAdmin = async (filters = {}) => {
   const params = new URLSearchParams(filters).toString();
-  const res = await fetch(`${BASE_URL}/recording/admin/all?${params}`, {
+  const res = await fetch(`${BASE_URL}/recordings?${params}`, {
     headers: getAuthHeaders(),
   });
-  return handleResponse(res);
-};
-
-/**
- * Get the streaming URL for a recording playback.
- * Returns a presigned URL or stream endpoint.
- * @param {number} recordingId
- * @param {number} requesterId
- */
-export const getRecordingStreamUrl = async (recordingId, requesterId) => {
-  const res = await fetch(
-    `${BASE_URL}/recording/${recordingId}/stream?requesterId=${requesterId}`,
-    { headers: getAuthHeaders() }
-  );
   return handleResponse(res);
 };
 
 // ── DELETE ────────────────────────────────────────────────
 
 /**
- * Tutor deletes their own recording (to re-upload a corrected version).
- * Removes the file from the server and sets DB record status = "Deleted".
- * @param {number} recordingId
- * @param {number} tutorId - Must be the tutor who uploaded it
+ * Delete a recording.
+ * DELETE /api/recordings/:id
  */
 export const deleteTutorRecording = async (recordingId, tutorId) => {
-  const res = await fetch(`${BASE_URL}/recording/${recordingId}`, {
+  const res = await fetch(`${BASE_URL}/recordings/${recordingId}`, {
     method: "DELETE",
     headers: getAuthHeaders(),
     body: JSON.stringify({ tutorId }),
@@ -186,96 +141,160 @@ export const deleteTutorRecording = async (recordingId, tutorId) => {
   return handleResponse(res);
 };
 
+// ── VIEWS ────────────────────────────────────────────────
+
+/**
+ * Increment recording views.
+ * PATCH /api/recordings/:id/views
+ */
+export const incrementRecordingViews = async (recordingId, increment = 1) => {
+  const res = await fetch(`${BASE_URL}/recordings/${recordingId}/views`, {
+    method: "PATCH",
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ increment }),
+  });
+  return handleResponse(res);
+};
+
+// ══════════════════════════════════════════════════════════
+// MEETINGS
+// Pages: TutorMeetings.tsx, StudentMeetings.tsx
+// Backend routes: /api/meetings
+// ══════════════════════════════════════════════════════════
+
+/**
+ * List all meetings (optionally filtered by status).
+ * GET /api/meetings?status=pending
+ *
+ * @param {Object} [filters] - { status?: "pending"|"confirmed"|"cancelled"|"completed" }
+ * @returns {Promise<Meeting[]>}
+ */
+export const listMeetings = async (filters = {}) => {
+  const params = new URLSearchParams();
+  if (filters?.status) params.set("status", filters.status);
+  const qs = params.toString();
+  const url = qs ? `${BASE_URL}/meetings?${qs}` : `${BASE_URL}/meetings`;
+  const res = await fetch(url, { headers: getAuthHeaders() });
+  return handleResponse(res);
+};
+
+/**
+ * Get a single meeting by ID.
+ * GET /api/meetings/:id
+ *
+ * @param {string} meetingId
+ * @returns {Promise<Meeting>}
+ */
+export const getMeetingById = async (meetingId) => {
+  const res = await fetch(`${BASE_URL}/meetings/${meetingId}`, {
+    headers: getAuthHeaders(),
+  });
+  return handleResponse(res);
+};
+
+/**
+ * Create a new meeting.
+ * POST /api/meetings
+ *
+ * @param {Object} payload
+ * @param {string} payload.studentName
+ * @param {string} payload.studentEmail
+ * @param {boolean} [payload.isForAllStudents]
+ * @param {string} payload.subject
+ * @param {string} payload.scheduledFor - ISO date string
+ * @param {number} [payload.durationMinutes]
+ * @param {string} [payload.meetingLink]
+ * @param {string} [payload.notes]
+ * @returns {Promise<Meeting>}
+ */
+export const createMeeting = async (payload) => {
+  const res = await fetch(`${BASE_URL}/meetings`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+  return handleResponse(res);
+};
+
+/**
+ * Update a meeting's status and/or fields.
+ * PATCH /api/meetings/:id
+ *
+ * @param {string} meetingId
+ * @param {string} status - "pending"|"confirmed"|"cancelled"|"completed"
+ * @param {string} [notes]
+ * @param {string} [meetingLink]
+ * @param {boolean} [isLive]
+ * @returns {Promise<Meeting>}
+ */
+export const updateMeetingStatus = async (meetingId, status, notes, meetingLink, isLive) => {
+  const body = { status };
+  if (notes !== undefined) body.notes = notes;
+  if (meetingLink !== undefined) body.meetingLink = meetingLink;
+  if (isLive !== undefined) body.isLive = isLive;
+
+  const res = await fetch(`${BASE_URL}/meetings/${meetingId}`, {
+    method: "PATCH",
+    headers: getAuthHeaders(),
+    body: JSON.stringify(body),
+  });
+  return handleResponse(res);
+};
+
 // ══════════════════════════════════════════════════════════
 // ADMIN MODERATION
 // Pages: AdminModeration.tsx
+// Backend routes: /api/moderation/reports
 // ══════════════════════════════════════════════════════════
-
-// ── CREATE (Flag) ─────────────────────────────────────────
-
-/**
- * Admin flags a recording → status = "Flagged".
- * Immediately hidden from the student view.
- * @param {number} recordingId
- * @param {number} adminId
- * @param {string} flagReason - Reason for flagging
- */
-export const flagRecording = async (recordingId, adminId, flagReason) => {
-  const res = await fetch(`${BASE_URL}/recording/${recordingId}/flag`, {
-    method: "PUT",
-    headers: getAuthHeaders(),
-    body: JSON.stringify({ adminId, flagReason }),
-  });
-  return handleResponse(res);
-};
-
-// ── READ (Admin Reports) ──────────────────────────────────
 
 /**
  * Get all moderation reports/flags for admin review.
- * @param {Object} [filters] - { status?: "pending"|"reviewing"|"resolved"|"dismissed" }
+ * GET /api/moderation/reports?status=pending
  */
 export const getModerationReports = async (filters = {}) => {
   const params = new URLSearchParams(filters).toString();
-  const res = await fetch(`${BASE_URL}/recording/moderation/reports?${params}`, {
-    headers: getAuthHeaders(),
-  });
+  const url = params ? `${BASE_URL}/moderation/reports?${params}` : `${BASE_URL}/moderation/reports`;
+  const res = await fetch(url, { headers: getAuthHeaders() });
   return handleResponse(res);
 };
 
 /**
- * Get a single moderation report by ID.
- * @param {string} reportId
+ * Create a new moderation report (flag).
+ * POST /api/moderation/reports
  */
-export const getModerationReportById = async (reportId) => {
-  const res = await fetch(`${BASE_URL}/recording/moderation/reports/${reportId}`, {
+export const flagRecording = async (recordingId, adminId, flagReason) => {
+  const res = await fetch(`${BASE_URL}/moderation/reports`, {
+    method: "POST",
     headers: getAuthHeaders(),
-  });
-  return handleResponse(res);
-};
-
-// ── UPDATE (Restore / Change Moderation Status) ───────────
-
-/**
- * Admin restores a flagged recording → status back to "Active".
- * @param {number} recordingId
- * @param {number} adminId
- * @param {string} [notes] - Admin notes on restoration
- */
-export const restoreRecording = async (recordingId, adminId, notes = "") => {
-  const res = await fetch(`${BASE_URL}/recording/${recordingId}/restore`, {
-    method: "PUT",
-    headers: getAuthHeaders(),
-    body: JSON.stringify({ adminId, notes }),
+    body: JSON.stringify({
+      recordingId,
+      reporter: adminId,
+      type: "content",
+      description: flagReason,
+    }),
   });
   return handleResponse(res);
 };
 
 /**
- * Update the status of a moderation report.
- * @param {string} reportId
- * @param {number} adminId
- * @param {"reviewing" | "resolved" | "dismissed"} status
- * @param {string} [notes]
+ * Update a moderation report status.
+ * PATCH /api/moderation/reports/:id
  */
 export const updateModerationReportStatus = async (reportId, adminId, status, notes = "") => {
-  const res = await fetch(`${BASE_URL}/recording/moderation/reports/${reportId}/status`, {
-    method: "PUT",
+  const res = await fetch(`${BASE_URL}/moderation/reports/${reportId}`, {
+    method: "PATCH",
     headers: getAuthHeaders(),
-    body: JSON.stringify({ adminId, status, notes }),
+    body: JSON.stringify({ adminId, status, adminNote: notes }),
   });
   return handleResponse(res);
 };
 
 /**
- * Admin permanently hard-deletes a recording from the server and DB.
- * Must log a moderation reason — required field.
- * @param {number} recordingId
- * @param {number} adminId
- * @param {string} reason - Required moderation reason
+ * Admin permanently hard-deletes a recording.
+ * DELETE /api/recordings/:id
  */
 export const adminHardDeleteRecording = async (recordingId, adminId, reason) => {
-  const res = await fetch(`${BASE_URL}/recording/${recordingId}/hard-delete`, {
+  const res = await fetch(`${BASE_URL}/recordings/${recordingId}`, {
     method: "DELETE",
     headers: getAuthHeaders(),
     body: JSON.stringify({ adminId, reason }),
@@ -286,4 +305,3 @@ export const adminHardDeleteRecording = async (recordingId, adminId, reason) => 
 // ── NOTE ─────────────────────────────────────────────────
 // Auto-delete (recordings older than 30 days) is handled by a
 // scheduled background job on the backend server — NOT a front-end API call.
-// The backend also sends a notification to the student before deletion.

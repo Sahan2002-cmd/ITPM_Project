@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
   UserCheck, UserX, Clock, CheckCircle, XCircle, Search,
   ChevronDown, ChevronUp, Users, ClipboardList, FileText,
@@ -48,7 +48,7 @@ function toSlstDateStr(utcStr: string) {
 async function rejectTutorProfile(profileId: string) {
   const token = localStorage.getItem("token");
   const res = await fetch(
-    `http://localhost:55708/api/tutorprofile/soft-delete/${profileId}?newStatus=Suspended`,
+    `https://localhost:44331/api/tutorprofile/soft-delete/${profileId}?newStatus=Suspended`,
     {
       method: "PUT",
       headers: {

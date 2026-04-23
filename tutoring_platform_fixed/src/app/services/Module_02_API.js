@@ -22,7 +22,7 @@
  *   - Booking records are NEVER hard-deleted
  */
 
-const BASE_URL = "http://localhost:55708/api";
+const BASE_URL = "https://localhost:44331/api";
 
 const getAuthHeaders = () => {
   const token = localStorage.getItem("token");

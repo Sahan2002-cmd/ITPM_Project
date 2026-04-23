@@ -30,6 +30,11 @@ import AdminReports from "./pages/AdminReports";
 import PaymentGateway from "./pages/PaymentGateway";
 import TutorApproval from "./pages/TutorApproval";
 import TutorPendingApproval from "./pages/TutorPendingApproval";
+import TutorMeetings from "./pages/TutorMeetings";
+import StudentMeetings from "./pages/StudentMeetings";
+import TutorMeetingRoom from "./pages/TutorMeetingRoom";
+import StudentMeetingRoom from "./pages/StudentMeetingRoom";
+import AIQuiz from "./pages/AIQuiz";
 
 // Wrapper: wraps each child with a role check inside the already-authed Layout
 function RoleRoute({ children, roles }: { children: React.ReactNode; roles: ('student' | 'tutor' | 'admin')[] }) {
@@ -64,6 +69,9 @@ export const router = createBrowserRouter([
       { path: "materials",    element: <RoleRoute roles={["student"]}><MaterialsLibrary /></RoleRoute> },
       { path: "session/notes", element: <RoleRoute roles={["student"]}><SessionNotes /></RoleRoute> },
       { path: "session/review", element: <RoleRoute roles={["student"]}><SessionReview /></RoleRoute> },
+      { path: "meetings",     element: <RoleRoute roles={["student"]}><StudentMeetings /></RoleRoute> },
+      { path: "meetings/:id/live", element: <RoleRoute roles={["student"]}><StudentMeetingRoom /></RoleRoute> },
+      { path: "quiz",          element: <RoleRoute roles={["student"]}><AIQuiz /></RoleRoute> },
     ],
   },
 
@@ -88,6 +96,8 @@ export const router = createBrowserRouter([
       { path: "chat",          element: <RoleRoute roles={["tutor"]}><Chat /></RoleRoute> },
       { path: "files/upload",  element: <RoleRoute roles={["tutor"]}><FileUpload /></RoleRoute> },
       { path: "session/notes", element: <RoleRoute roles={["tutor"]}><SessionNotes /></RoleRoute> },
+      { path: "meetings",      element: <RoleRoute roles={["tutor"]}><TutorMeetings /></RoleRoute> },
+      { path: "meetings/:id/live", element: <RoleRoute roles={["tutor"]}><TutorMeetingRoom /></RoleRoute> },
     ],
   },
 
