@@ -66,36 +66,43 @@ export default function StudentDashboard() {
   useEffect(() => {
     const fetchData = async () => {
       if (!user?.userId) return;
-      try {
-        const [bookRes, tutorRes, ratingRes, userRes] = await Promise.all([
-          getBookingsByStudent(user.userId),
-          getAllTutors(),
-          getRatingsByStudent(user.userId),
-          getUserById(user.userId),
-        ]);
-        const loadedBookings: Booking[] = bookRes?.StatusCode === 1 && Array.isArray(bookRes.Data) ? bookRes.Data : [];
-        if (bookRes?.StatusCode === 1) setBookings(loadedBookings);
-        if (tutorRes?.StatusCode === 1) setTutors(Array.isArray(tutorRes.Data) ? tutorRes.Data : []);
-        if (userRes?.StatusCode === 1 && userRes.Data) {
-          setPerformanceScore(userRes.Data.PerformanceScore ?? null);
-          setPerformanceGrade(userRes.Data.PerformanceGrade ?? null);
-        }
+      
+      const safeFetch = async (p: Promise<any>) => {
+        try { return await p; } catch (err) { console.error(err); return null; }
+      };
 
-        // Find completed bookings not yet rated — trigger popup for the first one
-        const ratedBookingIds = new Set<number>(
-          ratingRes?.StatusCode === 1 && Array.isArray(ratingRes.Data)
-            ? ratingRes.Data.map((r: any) => r.BookingId)
-            : []
-        );
-        const unrated = loadedBookings.filter(
-          b => b.Status === "Completed" && b.BookingId && !ratedBookingIds.has(b.BookingId)
-        );
-        if (unrated.length > 0) setRatePopup(unrated[0]);
-      } catch {
-        // show empty state
-      } finally {
-        setLoading(false);
+      const [bookRes, tutorRes, ratingRes, userRes] = await Promise.all([
+        safeFetch(getBookingsByStudent(user.userId)),
+        safeFetch(getAllTutors()),
+        safeFetch(getRatingsByStudent(user.userId)),
+        safeFetch(getUserById(user.userId)),
+      ]);
+
+      const loadedBookings: Booking[] = bookRes?.StatusCode === 1 && Array.isArray(bookRes.Data) ? bookRes.Data : [];
+      setBookings(loadedBookings);
+
+      const tutorData = tutorRes?.Data ?? tutorRes;
+      if (Array.isArray(tutorData)) {
+        setTutors(tutorData);
       }
+
+      if (userRes?.StatusCode === 1 && userRes.Data) {
+        setPerformanceScore(userRes.Data.PerformanceScore ?? null);
+        setPerformanceGrade(userRes.Data.PerformanceGrade ?? null);
+      }
+
+      // Find completed bookings not yet rated — trigger popup for the first one
+      const ratedBookingIds = new Set<number>(
+        ratingRes?.StatusCode === 1 && Array.isArray(ratingRes.Data)
+          ? ratingRes.Data.map((r: any) => r.BookingId)
+          : []
+      );
+      const unrated = loadedBookings.filter(
+        b => b.Status === "Completed" && b.BookingId && !ratedBookingIds.has(b.BookingId)
+      );
+      if (unrated.length > 0) setRatePopup(unrated[0]);
+      
+      setLoading(false);
     };
     fetchData();
   }, [user?.userId]);
