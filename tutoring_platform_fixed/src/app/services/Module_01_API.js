@@ -85,7 +85,9 @@ export const getTutorProfileById = async (tutorId) => {
  * @param {number} userId
  */
 export const getTutorProfileByUserId = async (userId) => {
-  const res = await fetch(`${BASE_URL}/tutorprofile/by-userid/${userId}`, {
+  const url = `${BASE_URL}/tutorprofile/by-userid/${userId}`;
+  console.log('[Module_01_API] Fetching tutor profile from:', url);
+  const res = await fetch(url, {
     headers: getAuthHeaders(),
   });
   return handleResponse(res);

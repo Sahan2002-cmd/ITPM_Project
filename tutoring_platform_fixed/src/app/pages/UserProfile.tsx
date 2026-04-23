@@ -110,27 +110,32 @@ export default function UserProfile() {
   // Load tutor profile from backend
   useEffect(() => {
     if (user?.role !== 'tutor' || !user.userId) return;
-    getTutorProfileByUserId(user.userId)
+    const uid = user.userId;
+    console.log('[UserProfile] Requesting tutor profile for UID:', uid);
+    getTutorProfileByUserId(uid)
       .then((res: any) => {
-        const p = res.Data ?? res;
-        if (!p) return;
-        setTutorProfileId(p.Id ?? null);
-        const loaded: ProfileData = {
-          name: p.FullName || user.name || '',
-          email: p.Email || user.email || '',
-          phone: '',
-          bio: p.Bio || '',
-          location: '',
-          dateOfBirth: '',
-          hourlyRate: p.HourlyRate != null ? String(p.HourlyRate) : '',
-          experience: p.YearsOfExperience != null ? String(p.YearsOfExperience) : '',
-          education: (p.Qualifications ?? []).join(', '),
-          subjects: p.SubjectsTaught ?? [],
-        };
-        setProfileData(loaded);
-        setOriginalData(loaded);
+        console.log('[UserProfile] Tutor profile response:', res);
+        const p = res.Data || res;
+        if (p) {
+          setTutorProfileId(p.Id ?? null);
+          const loaded: ProfileData = {
+            name: p.FullName || user.name || '',
+            email: p.Email || user.email || '',
+            phone: p.PhoneNumber || '',
+            bio: p.Bio || '',
+            location: '',
+            dateOfBirth: '',
+            hourlyRate: p.HourlyRate != null ? String(p.HourlyRate) : '',
+            experience: p.YearsOfExperience != null ? String(p.YearsOfExperience) : '',
+            education: (p.Qualifications ?? []).join(', '),
+            subjects: p.SubjectsTaught ?? [],
+          };
+          setProfileData(loaded);
+          setOriginalData(loaded);
+        }
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error('[UserProfile] Failed to load tutor profile:', err);
         toast.error('Failed to load your tutor profile from the server.');
       });
   }, [user?.userId, user?.role]);
