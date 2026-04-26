@@ -453,6 +453,7 @@
     <Compile Include="Models\RequestApiModels\PaymentRequestApi.cs" />
     <Compile Include="Models\RequestApiModels\ProfileImageRequest.cs" />
     <Compile Include="Models\RequestApiModels\RatingRequestApi.cs" />
+    <Compile Include="Models\RequestApiModels\RecordingRequestApi.cs" />
     <Compile Include="Models\RequestApiModels\SessionNoteRequestApi.cs" />
     <Compile Include="Models\RequestApiModels\TutorProfileRequestApi.cs" />
     <Compile Include="Models\RequestApiModels\TutorSubjectRequestApi.cs" />
