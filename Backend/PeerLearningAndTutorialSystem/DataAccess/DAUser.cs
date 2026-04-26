@@ -686,32 +686,6 @@ namespace PeerLearningAndTutorialSystem.DataAccess
             catch (Exception ex) { return Response.Error(ex.Message); }
         }
 
-        // 018 – UPDATE BASIC USER INFO
-        public Response UpdateBasicUserInfo(UserRequestApi request)
-        {
-            try
-            {
-                var updateDef = Builders<UserModel>.Update;
-                var updates = new List<UpdateDefinition<UserModel>>();
-
-                if (!string.IsNullOrWhiteSpace(request.FullName))
-                    updates.Add(updateDef.Set(u => u.FullName, request.FullName));
-                if (!string.IsNullOrWhiteSpace(request.PhoneNumber))
-                    updates.Add(updateDef.Set(u => u.PhoneNumber, request.PhoneNumber));
-
-                if (updates.Count == 0) return Response.Fail("No fields to update.");
-
-                updates.Add(updateDef.Set(u => u.UpdatedAt, ToIsoString(DateTime.UtcNow)));
-
-                var result = _users.UpdateOne(u => u.UserId == request.UserId, updateDef.Combine(updates));
-
-                if (result.ModifiedCount > 0)
-                    return Response.Success(null, "Basic info updated.");
-                return Response.Fail("User not found or no changes made.");
-            }
-            catch (Exception ex) { return Response.Error(ex.Message); }
-        }
-
         // Helper
         private string GetUserEmailById(int userId)
         {

@@ -431,6 +431,7 @@
     <Compile Include="Interfaces\ITutorProfile.cs" />
     <Compile Include="Interfaces\IUser.cs" />
     <Compile Include="Models\AnalyticsModel.cs" />
+    <Compile Include="Models\GroupMemberModel.cs" />
     <Compile Include="Models\AvailabilityModel.cs" />
     <Compile Include="Models\BookingModel.cs" />
     <Compile Include="Models\DashboardModel.cs" />
