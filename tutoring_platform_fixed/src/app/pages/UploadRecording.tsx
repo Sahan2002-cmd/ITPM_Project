@@ -1,17 +1,41 @@
-import { useState } from "react";
-import { Upload, Video, Check, X, Play, Clock, BookOpen, Tag, Globe, Lock } from "lucide-react";
-import { tutors } from "../data/mockData";
+import { useState, useEffect } from "react";
+import { Upload, Video, Check, X, Play, Clock, BookOpen, Tag, Globe, Lock, Loader2 } from "lucide-react";
+import { useAuth } from "../contexts/AuthContext";
+import { getBookingsByTutor } from "../services/Module_02_API";
+import { uploadRecording } from "../services/RecordingAPI";
+import { toast } from "sonner";
 
 export default function UploadRecording() {
+  const { user } = useAuth();
   const [dragging, setDragging] = useState(false);
   const [file, setFile] = useState<{ name: string; size: number; progress: number } | null>(null);
   const [title, setTitle] = useState("");
   const [subject, setSubject] = useState("");
+  const [bookingId, setBookingId] = useState<string>("");
   const [description, setDescription] = useState("");
   const [visibility, setVisibility] = useState("enrolled");
   const [tags, setTags] = useState<string[]>([]);
   const [newTag, setNewTag] = useState("");
   const [uploaded, setUploaded] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [bookings, setBookings] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (user?.userId) {
+      loadTutorBookings();
+    }
+  }, [user?.userId]);
+
+  const loadTutorBookings = async () => {
+    try {
+      const res = await getBookingsByTutor(user.userId, "Completed");
+      if (res.StatusCode === 1) {
+        setBookings(res.Data || []);
+      }
+    } catch (err) {
+      console.error("Failed to load bookings", err);
+    }
+  };
 
   const startUpload = (name: string, size: number) => {
     setFile({ name, size, progress: 0 });
@@ -47,7 +71,37 @@ export default function UploadRecording() {
     }
   };
 
-  const handlePublish = () => setUploaded(true);
+  const handlePublish = async () => {
+    if (!file || !title || !bookingId) {
+      toast.error("Please complete all required fields");
+      return;
+    }
+
+    setIsPublishing(true);
+    try {
+      const recordingData = {
+        BookingId: parseInt(bookingId),
+        Title: title,
+        Subject: subject,
+        Description: description,
+        VideoUrl: "https://demo-storage.peerlearn.com/videos/" + file.name.replace(/\s/g, "_"), // Demo URL
+        ThumbnailUrl: "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&auto=format&fit=crop&q=60",
+        Duration: "45:00" // Mock duration for demo
+      };
+
+      const res = await uploadRecording(recordingData);
+      if (res.StatusCode === 1) {
+        toast.success("Recording Published Successfully!");
+        setUploaded(true);
+      } else {
+        toast.error(res.Message || "Failed to publish recording");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "An error occurred during publishing");
+    } finally {
+      setIsPublishing(false);
+    }
+  };
 
   if (uploaded) {
     return (
@@ -57,7 +111,7 @@ export default function UploadRecording() {
         </div>
         <h2 className="text-xl font-bold text-slate-900 mb-2">Recording Published!</h2>
         <p className="text-slate-500 text-center mb-6">Your session recording is now available to enrolled students.</p>
-        <button onClick={() => { setUploaded(false); setFile(null); setTitle(""); }} className="px-6 py-2.5 bg-violet-600 text-white rounded-xl text-sm font-medium hover:bg-violet-700 transition-colors">
+        <button onClick={() => { setUploaded(false); setFile(null); setTitle(""); setBookingId(""); }} className="px-6 py-2.5 bg-violet-600 text-white rounded-xl text-sm font-medium hover:bg-violet-700 transition-colors">
           Upload Another
         </button>
       </div>
@@ -130,6 +184,18 @@ export default function UploadRecording() {
           <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
             <h3 className="font-semibold text-slate-800">Recording Details</h3>
             <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Link to Session *</label>
+                <select value={bookingId} onChange={e => setBookingId(e.target.value)}
+                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 bg-white">
+                    <option value="">Select a completed session...</option>
+                    {bookings.map(b => (
+                        <option key={b.BookingId} value={b.BookingId}>
+                            #{b.BookingId} - {new Date(b.SessionDate).toLocaleDateString()} ({b.StartTime.split('T')[1].substring(0,5)})
+                        </option>
+                    ))}
+                </select>
+            </div>
+            <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">Title *</label>
               <input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Calculus Session — Chain Rule & Integration"
                 className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400" />
@@ -146,24 +212,6 @@ export default function UploadRecording() {
               <label className="block text-sm font-medium text-slate-700 mb-1.5">Description</label>
               <textarea value={description} onChange={e => setDescription(e.target.value)} rows={3} placeholder="What topics are covered in this recording?"
                 className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 resize-none" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Tags</label>
-              <div className="flex gap-2">
-                <input value={newTag} onChange={e => setNewTag(e.target.value)} onKeyDown={e => e.key === "Enter" && addTag()} placeholder="Add tag..."
-                  className="flex-1 px-4 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20" />
-                <button onClick={addTag} className="px-3 py-2 bg-violet-600 text-white rounded-xl text-sm hover:bg-violet-700 transition-colors">Add</button>
-              </div>
-              {tags.length > 0 && (
-                <div className="flex gap-1.5 flex-wrap mt-2">
-                  {tags.map(tag => (
-                    <span key={tag} className="flex items-center gap-1 px-2.5 py-1 bg-violet-100 text-violet-700 rounded-lg text-xs">
-                      <Tag className="w-2.5 h-2.5" /> {tag}
-                      <button onClick={() => setTags(t => t.filter(x => x !== tag))}>×</button>
-                    </span>
-                  ))}
-                </div>
-              )}
             </div>
           </div>
         </div>
@@ -191,27 +239,14 @@ export default function UploadRecording() {
             </div>
           </div>
 
-          {/* Chapter Points */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
-            <h3 className="font-semibold text-slate-800 mb-3 flex items-center gap-2"><Clock className="w-4 h-4 text-violet-600" /> Chapter Points</h3>
-            <div className="space-y-2">
-              {[{ time: "0:00", label: "Introduction" }, { time: "8:30", label: "Chain Rule Basics" }, { time: "24:15", label: "Practice Problems" }].map((c, i) => (
-                <div key={i} className="flex items-center gap-2 text-sm">
-                  <span className="text-violet-600 font-mono w-12 flex-shrink-0">{c.time}</span>
-                  <input defaultValue={c.label} className="flex-1 px-2 py-1 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-violet-500/20" />
-                </div>
-              ))}
-              <button className="text-xs text-violet-600 font-medium hover:text-violet-800 transition-colors">+ Add chapter point</button>
-            </div>
-          </div>
-
           {/* Publish */}
           <button
             onClick={handlePublish}
-            disabled={!file || file.progress < 100 || !title}
+            disabled={!file || file.progress < 100 || !title || !bookingId || isPublishing}
             className="w-full flex items-center justify-center gap-2 py-3.5 bg-violet-600 text-white rounded-xl font-medium hover:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-md shadow-violet-200"
           >
-            <Play className="w-4 h-4" /> Publish Recording
+            {isPublishing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+            {isPublishing ? "Publishing..." : "Publish Recording"}
           </button>
           <p className="text-xs text-center text-slate-400">Students will be notified when the recording is published</p>
         </div>
