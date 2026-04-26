@@ -26,6 +26,8 @@ namespace PeerLearningAndTutorialSystem.Interfaces
         /// <param name="callerRole">roleName from JWT ("Admin" | "Tutor" | "Student").</param>
         Response EditUser(UserRequestApi request, int callerId, string callerRole);
 
+        Response UpdateBasicUserInfo(UserRequestApi request);
+
         Response DeleteUser(int userId, int adminId);
         Response ApproveUser(int userId, string status, int adminId);
 

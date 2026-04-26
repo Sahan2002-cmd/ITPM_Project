@@ -335,3 +335,17 @@ export const uploadProfileImage = async (imageBase64) => {
   });
   return handleResponse(res);
 };
+
+/**
+ * Update basic user info (name, phone, location, etc.) without OTP.
+ * @param {Object} data - The updated user fields
+ */
+export const updateBasicUserInfo = async (data) => {
+  const res = await fetch(`${BASE_URL}/user/update-basic-info`, {
+    method: "PUT",
+    headers: getAuthHeaders(),
+    body: JSON.stringify(data),
+  });
+  return handleResponse(res);
+};
+

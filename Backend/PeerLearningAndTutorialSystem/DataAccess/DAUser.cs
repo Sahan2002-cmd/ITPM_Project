@@ -257,6 +257,38 @@ namespace PeerLearningAndTutorialSystem.DataAccess
             catch (Exception ex) { return Response.Error(ex.Message); }
         }
 
+        // Update Basic Info Without OTP
+        public Response UpdateBasicUserInfo(UserRequestApi request)
+        {
+            try
+            {
+                int targetUserId = request.UserId ?? 0;
+                if (targetUserId == 0) return Response.Fail("UserId is required.");
+
+                var user = _users.Find(u => u.UserId == targetUserId).FirstOrDefault();
+                if (user == null) return Response.Fail("User not found.");
+
+                var updateDef = new List<UpdateDefinition<UserModel>>();
+
+                if (!string.IsNullOrWhiteSpace(request.FullName))
+                    updateDef.Add(Builders<UserModel>.Update.Set(u => u.FullName, request.FullName.Trim()));
+
+                if (!string.IsNullOrWhiteSpace(request.PhoneNumber))
+                    updateDef.Add(Builders<UserModel>.Update.Set(u => u.PhoneNumber, request.PhoneNumber.Trim()));
+
+                if (updateDef.Count == 0)
+                    return Response.Fail("No valid fields to update.");
+
+                updateDef.Add(Builders<UserModel>.Update.Set(u => u.UpdatedAt, ToIsoString(DateTime.UtcNow)));
+
+                var update = Builders<UserModel>.Update.Combine(updateDef);
+                _users.UpdateOne(u => u.UserId == targetUserId, update);
+
+                return Response.Success(null, "Basic profile info updated.");
+            }
+            catch (Exception ex) { return Response.Error(ex.Message); }
+        }
+
         // 004 – EDIT USER (requires OTP verification first)
         public Response EditUser(UserRequestApi request, int callerId, string callerRole)
         {

@@ -1,4 +1,4 @@
-﻿namespace PeerLearningAndTutorialSystem.Models.RequestApiModels
+namespace PeerLearningAndTutorialSystem.Models.RequestApiModels
 {
     public class BookingRequestApi
     {
@@ -16,5 +16,9 @@
 
         /// <summary>User ID of the student making the booking.</summary>
         public int StudentId { get; set; }
+
+        public string SessionType { get; set; }
+        public string Notes { get; set; }
+        public System.Collections.Generic.List<GroupMemberModel> GroupMembers { get; set; }
     }
 }

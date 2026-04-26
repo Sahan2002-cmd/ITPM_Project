@@ -1,4 +1,4 @@
-﻿using MongoDB.Bson;
+using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 using System;
 
@@ -34,6 +34,10 @@ namespace PeerLearningAndTutorialSystem.Models
         public DateTime SessionDate { get; set; }
         public DateTime StartTime { get; set; }
         public DateTime EndTime { get; set; }
+
+        public string SessionType { get; set; }
+        public string Notes { get; set; }
+        public List<GroupMemberModel> GroupMembers { get; set; } = new List<GroupMemberModel>();
 
         public string CreatedAt { get; set; }
         public string UpdatedAt { get; set; }

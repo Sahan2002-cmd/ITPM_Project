@@ -133,9 +133,33 @@ namespace PeerLearningAndTutorialSystem
                     CreatedAt = UtcNow(), UpdatedAt = UtcNow()
                 };
 
-                users.InsertMany(new[] { admin, kasun, nimesha, alex, maya });
+                var tharindu = new UserModel
+                {
+                    UserId = CounterHelper.GetNextSequence("userId"),   // 6
+                    FullName = "Tharindu Senanayake",
+                    Email = "tharindu.tutor@email.com",
+                    PhoneNumber = "+94771000006",
+                    PasswordHash = BCrypt.Net.BCrypt.HashPassword("Tutor@123", 12),
+                    RoleId = 2, RoleName = "Tutor",
+                    Status = "Active", IsEmailVerified = true,
+                    CreatedAt = UtcNow(), UpdatedAt = UtcNow()
+                };
+
+                var samith = new UserModel
+                {
+                    UserId = CounterHelper.GetNextSequence("userId"),   // 7
+                    FullName = "Samith Weerasinghe",
+                    Email = "samith.student@email.com",
+                    PhoneNumber = "+94771000007",
+                    PasswordHash = BCrypt.Net.BCrypt.HashPassword("Student@123", 12),
+                    RoleId = 3, RoleName = "Student",
+                    Status = "Active", IsEmailVerified = true,
+                    CreatedAt = UtcNow(), UpdatedAt = UtcNow()
+                };
+
+                users.InsertMany(new[] { admin, kasun, nimesha, alex, maya, tharindu, samith });
                 System.Diagnostics.Debug.WriteLine(
-                    $"[SEED] ✓ 5 users inserted (IDs: {admin.UserId}, {kasun.UserId}, {nimesha.UserId}, {alex.UserId}, {maya.UserId}).");
+                    $"[SEED] ✓ 7 users inserted (IDs: {admin.UserId}, {kasun.UserId}, {nimesha.UserId}, {alex.UserId}, {maya.UserId}, {tharindu.UserId}, {samith.UserId}).");
 
                 // ════════════════════════════════════════════════════════════════
                 // STEP 2 — TUTOR PROFILES  (Status = "Active", bypassing Pending flow)
@@ -170,12 +194,28 @@ namespace PeerLearningAndTutorialSystem
                     CreatedAt = UtcNow(), UpdatedAt = UtcNow()
                 };
 
+                var tharinduProfile = new TutorProfileModel
+                {
+                    UserId = tharindu.UserId,
+                    Email = tharindu.Email,
+                    FullName = tharindu.FullName,
+                    Bio = "Software Engineering graduate teaching programming and computer science.",
+                    SubjectsTaught = new List<string> { "Computer Science", "Information Technology", "Programming" },
+                    Qualifications = new List<string> { "B.Sc. Software Engineering – SLIIT" },
+                    YearsOfExperience = 3,
+                    HourlyRate = 2500,
+                    Status = "Active",
+                    IsVerified = true,
+                    CreatedAt = UtcNow(), UpdatedAt = UtcNow()
+                };
+
                 // InsertMany populates .Id (ObjectId) on each object via the driver
-                profiles.InsertMany(new[] { kasunProfile, nimeshaProfile });
+                profiles.InsertMany(new[] { kasunProfile, nimeshaProfile, tharinduProfile });
                 string kasunProfileId   = kasunProfile.Id;
                 string nimeshaProfileId = nimeshaProfile.Id;
+                string tharinduProfileId = tharinduProfile.Id;
                 System.Diagnostics.Debug.WriteLine(
-                    $"[SEED] ✓ 2 tutor profiles inserted. Kasun={kasunProfileId}, Nimesha={nimeshaProfileId}");
+                    $"[SEED] ✓ 3 tutor profiles inserted. Kasun={kasunProfileId}, Nimesha={nimeshaProfileId}, Tharindu={tharinduProfileId}");
 
                 // ════════════════════════════════════════════════════════════════
                 // STEP 3 — AVAILABILITY SLOTS  (all future, Status = "Free" by default)
@@ -205,12 +245,18 @@ namespace PeerLearningAndTutorialSystem
                 var nimeshaSlot4 = MakeSlot(nimeshaProfileId, day3,    9,  0, 10, 30);
                 var nimeshaSlot5 = MakeSlot(nimeshaProfileId, day4,    15, 0, 16, 30);
 
+                // Tharindu's slots
+                var tharinduSlot1 = MakeSlot(tharinduProfileId, tomorrow, 16, 0, 18, 0);
+                var tharinduSlot2 = MakeSlot(tharinduProfileId, day2, 17, 0, 19, 0);
+                var tharinduSlot3 = MakeSlot(tharinduProfileId, day3, 16, 0, 18, 0);
+
                 slots.InsertMany(new[]
                 {
                     kasunSlot1, kasunSlot2, kasunSlot3, kasunSlot4, kasunSlot5,
-                    nimeshaSlot1, nimeshaSlot2, nimeshaSlot3, nimeshaSlot4, nimeshaSlot5
+                    nimeshaSlot1, nimeshaSlot2, nimeshaSlot3, nimeshaSlot4, nimeshaSlot5,
+                    tharinduSlot1, tharinduSlot2, tharinduSlot3
                 });
-                System.Diagnostics.Debug.WriteLine("[SEED] ✓ 10 availability slots inserted.");
+                System.Diagnostics.Debug.WriteLine("[SEED] ✓ 13 availability slots inserted.");
 
                 // ════════════════════════════════════════════════════════════════
                 // STEP 4 — BOOKINGS
@@ -329,8 +375,10 @@ namespace PeerLearningAndTutorialSystem
                 System.Diagnostics.Debug.WriteLine("[SEED]   admin@peerlearn.com       / Admin@123   (Admin)");
                 System.Diagnostics.Debug.WriteLine("[SEED]   kasun.tutor@email.com     / Tutor@123   (Tutor)");
                 System.Diagnostics.Debug.WriteLine("[SEED]   nimesha.tutor@email.com   / Tutor@123   (Tutor)");
+                System.Diagnostics.Debug.WriteLine("[SEED]   tharindu.tutor@email.com  / Tutor@123   (Tutor)");
                 System.Diagnostics.Debug.WriteLine("[SEED]   alex.student@email.com    / Student@123 (Student)");
                 System.Diagnostics.Debug.WriteLine("[SEED]   maya.student@email.com    / Student@123 (Student)");
+                System.Diagnostics.Debug.WriteLine("[SEED]   samith.student@email.com  / Student@123 (Student)");
                 System.Diagnostics.Debug.WriteLine("[SEED] ─────────────────────────────────────────────────────");
             }
             catch (Exception ex)

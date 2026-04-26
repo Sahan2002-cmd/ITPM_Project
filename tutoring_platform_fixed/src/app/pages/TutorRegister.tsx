@@ -31,7 +31,7 @@ function validateStep0(form: FormState): FieldErrors {
   if (!form.firstName.trim() || form.firstName.trim().length < 2) errs.firstName = "Min 2 characters required.";
   if (!form.lastName.trim() || form.lastName.trim().length < 2) errs.lastName = "Min 2 characters required.";
   if (!form.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) errs.email = "Valid email required.";
-  if (!form.phone.trim() || !/^\+?[\d\s\-().]{7,20}$/.test(form.phone.trim())) errs.phone = "Valid phone required.";
+  if (!form.phone.trim() || !/^\d{10}$/.test(form.phone.trim())) errs.phone = "Phone number must be exactly 10 digits.";
   return errs;
 }
 
@@ -85,8 +85,9 @@ export default function TutorRegister() {
             email: res.Data.Email || f.email, bio: res.Data.Bio || "",
             hourlyRate: res.Data.HourlyRate?.toString() || "",
             languages: res.Data.Languages || [], subjects: res.Data.SubjectsTaught || [],
-            degree: res.Data.Qualifications?.[0] || "", institution: res.Data.Qualifications?.[1] || "",
-            graduationYear: res.Data.Qualifications?.[2] || "",
+            degree: res.Data.Qualifications && res.Data.Qualifications.length > 0 ? res.Data.Qualifications[0] : "",
+            institution: res.Data.Qualifications && res.Data.Qualifications.length > 1 ? res.Data.Qualifications[1] : "",
+            graduationYear: res.Data.Qualifications && res.Data.Qualifications.length > 2 ? res.Data.Qualifications[2] : "",
           }));
         }
       } catch { /* No profile yet */ }
@@ -145,8 +146,10 @@ export default function TutorRegister() {
         await updateTutorProfile(existingProfile.Id, profileData);
         setUpdatePending(true);
         setEditMode(false);
-        const res = await getTutorProfileByUserId(user!.userId!);
-        if (res?.StatusCode === 1 && res.Data) setExistingProfile({ ...res.Data, Status: "Pending Verification" });
+        if (user?.userId) {
+          const res = await getTutorProfileByUserId(user.userId);
+          if (res?.StatusCode === 1 && res.Data) setExistingProfile({ ...res.Data, Status: "Pending Verification" });
+        }
       } else {
         const res = await createTutorProfile(profileData);
         if (res?.StatusCode === 1 && res.Data) {

@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router";
 import { Calendar, Clock, ChevronLeft, ChevronRight, Users, User, Check, Plus, Trash2, AlertCircle, Loader2, BadgeCheck } from "lucide-react";
 import { getTutorProfileById, getAvailabilityByTutor } from "../services/Module_01_API";
@@ -148,6 +148,9 @@ export default function BookingForm() {
         TutorProfileId: tutor.Id,
         TutorId: tutor.UserId,
         StudentId: user.userId,
+        SessionType: sessionType,
+        Notes: notes,
+        GroupMembers: sessionType === "group" ? groupMembers.map(m => ({ Name: m.name, StudentId: m.studentId })) : [],
       });
       const slstDate = new Date(new Date(selectedSlot.Date).getTime() + 5.5 * 60 * 60 * 1000)
         .toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../contexts/AuthContext';
-import { getTutorProfileByUserId, updateTutorProfile, uploadProfileImage } from '../services/Module_01_API';
+import { getTutorProfileByUserId, updateTutorProfile, uploadProfileImage, updateBasicUserInfo } from '../services/Module_01_API';
 import { getRatingsByStudent, getRatingsByTutor, updateRating } from '../services/Module_04_API';
 import { motion } from 'motion/react';
 import { 
@@ -177,6 +177,13 @@ export default function UserProfile() {
           YearsOfExperience: parseInt(profileData.experience || '0', 10),
         });
       }
+
+      // ── Update Basic Info (Name, Phone, etc.) ───────────────────
+      await updateBasicUserInfo({
+        UserId: user?.userId,
+        FullName: profileData.name,
+        PhoneNumber: profileData.phone,
+      });
 
       // ── Persistent Avatar Update ────────────────────────────────
       if (avatarPreview && avatarPreview !== user?.avatar) {

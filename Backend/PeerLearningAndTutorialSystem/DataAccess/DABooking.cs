@@ -1,4 +1,4 @@
-﻿using MongoDB.Driver;
+using MongoDB.Driver;
 using PeerLearningAndTutorialSystem.BusinessLayer;
 using PeerLearningAndTutorialSystem.DatabaseConnectivity;
 using PeerLearningAndTutorialSystem.Interfaces;
@@ -78,6 +78,9 @@ namespace PeerLearningAndTutorialSystem.DataAccess
                     SessionDate    = slot.StartTime.Date,
                     StartTime      = slot.StartTime,
                     EndTime        = slot.EndTime,
+                    SessionType    = request.SessionType,
+                    Notes          = request.Notes,
+                    GroupMembers   = request.GroupMembers ?? new System.Collections.Generic.List<GroupMemberModel>(),
                     CreatedAt      = UtcNowIso(),
                     UpdatedAt      = UtcNowIso()
                 };

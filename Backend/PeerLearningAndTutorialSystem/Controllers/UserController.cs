@@ -1,4 +1,4 @@
-﻿using Newtonsoft.Json.Linq;
+using Newtonsoft.Json.Linq;
 using PeerLearningAndTutorialSystem.BusinessLayer;
 using PeerLearningAndTutorialSystem.DataAccess;
 using PeerLearningAndTutorialSystem.Models;
@@ -202,6 +202,27 @@ namespace PeerLearningAndTutorialSystem.Controllers
             if (string.IsNullOrWhiteSpace(request.OtpCode))
                 return BadRequest("OTP code is required to edit profile.");
             return Ok(_da.EditUser(request, callerId, role));
+        }
+
+        // ════════════════════════════════════════════════════════════════
+        //  PUT  /api/user/update-basic-info (No OTP)
+        // ════════════════════════════════════════════════════════════════
+        [HttpPut]
+        [Route("update-basic-info")]
+        public IHttpActionResult UpdateBasicUserInfo([FromBody] UserRequestApi request)
+        {
+            int callerId = GetCallerUserId();
+            if (callerId == 0)
+                return Content(HttpStatusCode.Unauthorized, Response.Fail("Unauthorized. Please log in."));
+            if (request == null)
+                return BadRequest("Request body is required.");
+            
+            // Ensure they can only edit their own info
+            request.UserId = callerId;
+            // Let's assume _da has UpdateBasicUserInfo. We need to cast it or add it to IUser interface.
+            // But since _da is instantiated as `private readonly DAUser _da = new DAUser();`, 
+            // _da is of type DAUser which we just modified to have UpdateBasicUserInfo!
+            return Ok(_da.UpdateBasicUserInfo(request));
         }
 
         // ════════════════════════════════════════════════════════════════

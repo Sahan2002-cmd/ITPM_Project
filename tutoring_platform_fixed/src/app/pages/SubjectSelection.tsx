@@ -59,9 +59,9 @@ export default function SubjectSelection() {
           email: p.Email,
           bio: p.Bio,
           hourlyRate: p.HourlyRate,
-          degree: p.Qualifications?.[0] || "",
-          institution: p.Qualifications?.[1] || "",
-          graduationYear: p.Qualifications?.[2] || "",
+          degree: p.Qualifications && p.Qualifications.length > 0 ? p.Qualifications[0] : "",
+          institution: p.Qualifications && p.Qualifications.length > 1 ? p.Qualifications[1] : "",
+          graduationYear: p.Qualifications && p.Qualifications.length > 2 ? p.Qualifications[2] : "",
           languages: p.Languages || [],
           subjects: selected, // Updated subjects
         });
