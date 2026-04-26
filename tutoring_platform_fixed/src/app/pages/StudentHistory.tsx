@@ -4,6 +4,7 @@ import { Clock, Filter, Download, MessageSquare, RotateCcw, ChevronRight, Calend
 import { useAuth } from "../contexts/AuthContext";
 import { getBookingsByStudent, cancelBooking } from "../services/Module_02_API";
 import { getAllTutors } from "../services/Module_01_API";
+import { toast } from "sonner";
 
 type Booking = {
   Id: string;
@@ -107,11 +108,47 @@ export default function StudentHistory() {
       const res = await cancelBooking(bookingId);
       if (res?.StatusCode === 1) {
         await fetchBookings();
+        toast.success("Booking cancelled successfully.");
       } else {
         setCancelError(res?.Message || "Unable to cancel booking.");
       }
     } finally {
       setCancellingId(null);
+    }
+  };
+
+  const handleExport = () => {
+    if (filtered.length === 0) {
+      toast.error("No bookings to export.");
+      return;
+    }
+
+    const headers = ["Booking ID", "Status", "Tutor Name", "Subject", "Session Date", "Start Time", "End Time"];
+    
+    const rows = filtered.map(b => {
+      const tutor = tutorMap.get(b.TutorProfileId);
+      return [
+        b.BookingId || b.Id || "",
+        b.Status,
+        tutor?.FullName || "Unknown",
+        tutor?.SubjectsTaught?.[0] || "Unknown",
+        toSlstDateStr(b.SessionDate),
+        toSlstTime(b.StartTime),
+        toSlstTime(b.EndTime)
+      ].map(field => `"${String(field).replace(/"/g, '""')}"`).join(',');
+    });
+
+    const csvContent = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    if (link.download !== undefined) {
+      const url = URL.createObjectURL(blob);
+      link.setAttribute("href", url);
+      link.setAttribute("download", `student_bookings_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     }
   };
 
@@ -122,7 +159,10 @@ export default function StudentHistory() {
           <h1 className="text-2xl font-bold text-slate-900">Booking History</h1>
           <p className="text-slate-500 mt-1">Track all your tutoring sessions</p>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">
+        <button 
+          onClick={handleExport}
+          className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+        >
           <Download className="w-4 h-4" /> Export
         </button>
       </div>
@@ -184,6 +224,7 @@ export default function StudentHistory() {
                       <div>
                         <h3 className="font-semibold text-slate-900">{tutor?.FullName ?? "Tutor"}</h3>
                         <p className="text-sm text-slate-500">{tutor?.SubjectsTaught?.[0] ?? "Session"}</p>
+                        <p className="text-xs text-slate-400 mt-0.5">Booking ID: {booking.BookingId || booking.Id}</p>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${statusStyle.bg} ${statusStyle.text}`}>
