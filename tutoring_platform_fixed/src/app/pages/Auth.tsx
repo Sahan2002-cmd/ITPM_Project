@@ -202,23 +202,7 @@ export default function Auth() {
     return null;
   };
 
-  const validateHourlyRate = (rate: string): string | null => {
-    if (!rate) return 'Hourly rate is required for tutors';
-    const numRate = parseFloat(rate);
-    if (isNaN(numRate)) return 'Hourly rate must be a number';
-    if (numRate < 100) return 'Hourly rate must be at least Rs. 100';
-    if (numRate > 5000) return 'Hourly rate cannot exceed Rs. 5,000';
-    return null;
-  };
 
-  const validateExperience = (exp: string): string | null => {
-    if (!exp) return 'Experience is required for tutors';
-    const numExp = parseInt(exp);
-    if (isNaN(numExp)) return 'Experience must be a number';
-    if (numExp < 0) return 'Experience cannot be negative';
-    if (numExp > 10) return 'Experience cannot exceed 10 years';
-    return null;
-  };
 
   const validateEmployeeId = (id: string): string | null => {
     if (!id) return 'Employee ID is required for admins';
@@ -304,21 +288,7 @@ export default function Auth() {
       }
     }
 
-    if (signUpData.role === 'tutor') {
-      if (!signUpData.subjects) {
-        newErrors.push({ field: 'subjects', message: 'At least one subject is required' });
-      }
-      
-      if (signUpData.hourlyRate) {
-        const rateError = validateHourlyRate(signUpData.hourlyRate);
-        if (rateError) newErrors.push({ field: 'hourlyRate', message: rateError });
-      }
 
-      if (signUpData.experience) {
-        const expError = validateExperience(signUpData.experience);
-        if (expError) newErrors.push({ field: 'experience', message: expError });
-      }
-    }
 
     if (signUpData.role === 'admin') {
       if (signUpData.employeeId) {
@@ -977,75 +947,7 @@ export default function Auth() {
                     </>
                   )}
 
-                  {/* Tutor-specific fields */}
-                  {signUpData.role === 'tutor' && (
-                    <>
-                      <div>
-                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                          Subjects *
-                        </label>
-                        <input
-                          type="text"
-                          value={signUpData.subjects || ''}
-                          onChange={(e) => setSignUpData({ ...signUpData, subjects: e.target.value })}
-                          className={`w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border ${
-                            hasError('subjects')
-                              ? 'border-red-500'
-                              : 'border-slate-200 dark:border-slate-700'
-                          } rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500/20`}
-                          placeholder="Mathematics, Physics, Programming"
-                          disabled={isLoading}
-                        />
-                        {hasError('subjects') && (
-                          <p className="mt-1 text-xs text-red-600 dark:text-red-400">{getError('subjects')}</p>
-                        )}
-                      </div>
 
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                            Hourly Rate (Rs.) *
-                          </label>
-                          <input
-                            type="number"
-                            value={signUpData.hourlyRate || ''}
-                            onChange={(e) => setSignUpData({ ...signUpData, hourlyRate: e.target.value })}
-                            className={`w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border ${
-                              hasError('hourlyRate')
-                                ? 'border-red-500'
-                                : 'border-slate-200 dark:border-slate-700'
-                            } rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500/20`}
-                            placeholder="500"
-                            disabled={isLoading}
-                          />
-                          {hasError('hourlyRate') && (
-                            <p className="mt-1 text-xs text-red-600 dark:text-red-400">{getError('hourlyRate')}</p>
-                          )}
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                            Experience (years) *
-                          </label>
-                          <input
-                            type="number"
-                            value={signUpData.experience || ''}
-                            onChange={(e) => setSignUpData({ ...signUpData, experience: e.target.value })}
-                            className={`w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border ${
-                              hasError('experience')
-                                ? 'border-red-500'
-                                : 'border-slate-200 dark:border-slate-700'
-                            } rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500/20`}
-                            placeholder="2"
-                            disabled={isLoading}
-                          />
-                          {hasError('experience') && (
-                            <p className="mt-1 text-xs text-red-600 dark:text-red-400">{getError('experience')}</p>
-                          )}
-                        </div>
-                      </div>
-                    </>
-                  )}
 
                   {/* Admin-specific fields */}
                   {signUpData.role === 'admin' && (

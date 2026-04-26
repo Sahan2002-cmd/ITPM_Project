@@ -133,6 +133,7 @@ export default function TutorRegister() {
     setErrors({});
     try {
       const profileData = {
+        userId: user?.userId,
         fullName: `${form.firstName.trim()} ${form.lastName.trim()}`,
         email: form.email.trim(),
         subjects: form.subjects,

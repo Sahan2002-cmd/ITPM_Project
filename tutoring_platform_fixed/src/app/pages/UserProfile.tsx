@@ -164,7 +164,12 @@ export default function UserProfile() {
       })
       .catch((err) => {
         console.error('[UserProfile] Failed to load tutor profile:', err);
-        toast.error('Failed to load your tutor profile from the server.');
+        if (err.message && err.message.includes('404')) {
+           // Not found simply means they haven't registered the profile yet.
+           // We will show a warning banner in the UI instead of a red toast.
+        } else {
+           toast.error('Failed to load your tutor profile from the server.');
+        }
       });
   }, [user?.userId, user?.role]);
 
@@ -190,19 +195,14 @@ export default function UserProfile() {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      if (user?.role === 'tutor') {
-        if (!tutorProfileId) {
-          toast.error('Could not load your tutor profile. Please refresh the page and try again.');
-          setIsSaving(false);
-          return;
-        }
+      if (user?.role === 'tutor' && tutorProfileId) {
         const hourlyRateNum = parseFloat(profileData.hourlyRate || '0');
         if (hourlyRateNum < 100 || hourlyRateNum > 5000) {
           toast.error('Hourly rate must be between Rs. 100 and Rs. 5,000.');
           setIsSaving(false);
           return;
         }
-        await updateTutorProfile(tutorProfileId!, {
+        await updateTutorProfile(tutorProfileId, {
           UserId: user.userId,
           Bio: profileData.bio,
           HourlyRate: hourlyRateNum,
@@ -277,6 +277,23 @@ export default function UserProfile() {
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900 transition-colors duration-300">
       <div className="max-w-5xl mx-auto p-6">
+        
+        {/* Registration Warning Banner for Tutors */}
+        {user?.role === 'tutor' && !tutorProfileId && (
+          <div className="mb-6 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 rounded-2xl flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">Tutor Profile Not Completed</p>
+              <p className="text-sm text-amber-700 dark:text-amber-400 mt-1">
+                You need to complete your tutor registration to be visible to students and to set your availability.
+              </p>
+              <a href="/tutor/register" className="inline-block mt-2 px-4 py-1.5 bg-amber-600 text-white text-sm font-medium rounded-lg hover:bg-amber-700 transition-colors">
+                Complete Registration →
+              </a>
+            </div>
+          </div>
+        )}
+
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}

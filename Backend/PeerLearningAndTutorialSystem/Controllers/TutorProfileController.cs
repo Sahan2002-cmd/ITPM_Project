@@ -1,4 +1,4 @@
-﻿using PeerLearningAndTutorialSystem.BusinessLayer;
+using PeerLearningAndTutorialSystem.BusinessLayer;
 using PeerLearningAndTutorialSystem.DataAccess;
 using PeerLearningAndTutorialSystem.Models;
 using PeerLearningAndTutorialSystem.Models.RequestApiModels;
@@ -84,8 +84,9 @@ namespace PeerLearningAndTutorialSystem.Controllers
                 return Content(HttpStatusCode.BadRequest,
                     Response.Fail("Hourly rate must be between LKR 100 and LKR 5,000."));
 
-            // ── Force status — controller is the single authority ─────────
+            // ── Force status & UserId — controller is the single authority ─────────
             request.Status = "Pending Verification";
+            request.UserId = GetCallerId();
 
             var result = _da.CreateProfile(request);
             return result.StatusCode == 1
