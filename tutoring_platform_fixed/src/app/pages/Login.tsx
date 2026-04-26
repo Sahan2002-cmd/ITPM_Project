@@ -11,8 +11,6 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [showCredentials, setShowCredentials] = useState(false);
-  
   const { login } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
@@ -31,17 +29,6 @@ export default function Login() {
     } else {
       setError(result.error || 'Login failed');
     }
-  };
-
-  const fillCredentials = (type: 'student' | 'tutor' | 'admin') => {
-    const credentials = {
-      student: { email: 'student@sliit.lk', password: 'Student@123' },
-      tutor: { email: 'tutor@sliit.lk', password: 'Tutor@123' },
-      admin: { email: 'admin@sliit.lk', password: 'Admin@123' },
-    };
-    setEmail(credentials[type].email);
-    setPassword(credentials[type].password);
-    setError('');
   };
 
   return (
@@ -223,90 +210,6 @@ export default function Login() {
               </motion.button>
             </form>
 
-            {/* Divider */}
-            <div className="relative my-6">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-slate-200 dark:border-slate-700"></div>
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-4 bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400">
-                  Demo Credentials
-                </span>
-              </div>
-            </div>
-
-            {/* Quick Login Buttons */}
-            <div className="space-y-2">
-              <button
-                type="button"
-                onClick={() => fillCredentials('student')}
-                className="w-full py-2.5 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-750 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300 transition-colors flex items-center justify-center gap-2"
-              >
-                <CheckCircle2 className="w-4 h-4 text-violet-500" />
-                Login as Student
-              </button>
-              <button
-                type="button"
-                onClick={() => fillCredentials('tutor')}
-                className="w-full py-2.5 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-750 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300 transition-colors flex items-center justify-center gap-2"
-              >
-                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                Login as Tutor
-              </button>
-              <button
-                type="button"
-                onClick={() => fillCredentials('admin')}
-                className="w-full py-2.5 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-750 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300 transition-colors flex items-center justify-center gap-2"
-              >
-                <CheckCircle2 className="w-4 h-4 text-rose-500" />
-                Login as Admin
-              </button>
-            </div>
-
-            {/* Show Credentials Toggle */}
-            <button
-              type="button"
-              onClick={() => setShowCredentials(!showCredentials)}
-              className="w-full mt-4 text-sm text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 font-medium transition-colors"
-            >
-              {showCredentials ? 'Hide' : 'Show'} All Credentials
-            </button>
-
-            {/* Credentials Table */}
-            <AnimatePresence>
-              {showCredentials && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="mt-4 overflow-hidden"
-                >
-                  <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-4 text-xs space-y-2">
-                    <div className="flex justify-between items-center py-2 border-b border-slate-200 dark:border-slate-700">
-                      <span className="font-semibold text-violet-600 dark:text-violet-400">Student</span>
-                      <div className="text-right">
-                        <div className="text-slate-700 dark:text-slate-300">student@sliit.lk</div>
-                        <div className="text-slate-500 dark:text-slate-400">Student@123</div>
-                      </div>
-                    </div>
-                    <div className="flex justify-between items-center py-2 border-b border-slate-200 dark:border-slate-700">
-                      <span className="font-semibold text-emerald-600 dark:text-emerald-400">Tutor</span>
-                      <div className="text-right">
-                        <div className="text-slate-700 dark:text-slate-300">tutor@sliit.lk</div>
-                        <div className="text-slate-500 dark:text-slate-400">Tutor@123</div>
-                      </div>
-                    </div>
-                    <div className="flex justify-between items-center py-2">
-                      <span className="font-semibold text-rose-600 dark:text-rose-400">Admin</span>
-                      <div className="text-right">
-                        <div className="text-slate-700 dark:text-slate-300">admin@sliit.lk</div>
-                        <div className="text-slate-500 dark:text-slate-400">Admin@123</div>
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
           </div>
         </motion.div>
 

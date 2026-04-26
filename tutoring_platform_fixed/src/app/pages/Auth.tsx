@@ -188,9 +188,9 @@ export default function Auth() {
 
   const validatePhone = (phone: string): string | null => {
     if (!phone) return 'Phone number is required';
-    const phoneRegex = /^(\+94|0)?[0-9]{9}$/;
+    const phoneRegex = /^\+?\d{10,15}$/;
     if (!phoneRegex.test(phone.replace(/\s/g, ''))) {
-      return 'Invalid Sri Lankan phone number format';
+      return 'Phone must be 10-15 digits (optional + for country code)';
     }
     return null;
   };
@@ -653,17 +653,6 @@ export default function Auth() {
                     Sign in with Google
                   </button>
 
-                  {/* Demo Credentials */}
-                  <div className="mt-6 p-4 bg-slate-50 dark:bg-slate-800 rounded-xl">
-                    <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                      Demo Credentials:
-                    </p>
-                    <div className="space-y-1 text-xs text-slate-600 dark:text-slate-400">
-                      <p>Student: student@sliit.lk / Student@123</p>
-                      <p>Tutor: tutor@sliit.lk / Tutor@123</p>
-                      <p>Admin: admin@sliit.lk / Admin@123</p>
-                    </div>
-                  </div>
                 </motion.form>
               ) : showOtpStep ? (
                 <motion.form
@@ -914,7 +903,7 @@ export default function Auth() {
                       <input
                         type="tel"
                         value={signUpData.phone}
-                        onChange={(e) => setSignUpData({ ...signUpData, phone: e.target.value })}
+                        onChange={(e) => setSignUpData({ ...signUpData, phone: e.target.value.replace(/[^+\d]/g, '') })}
                         className={`w-full pl-11 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800 border ${
                           hasError('phone')
                             ? 'border-red-500'

@@ -144,10 +144,10 @@ export default function BookingForm() {
     setSubmitError(null);
     try {
       const res = await createBooking({
-        AvailabilityId: selectedSlot.Id,
-        TutorProfileId: tutor.Id,
-        TutorId: tutor.UserId,
-        StudentId: user.userId,
+        AvailabilityId: selectedSlot.Id ?? (selectedSlot as any).id,
+        TutorProfileId: tutor.Id ?? (tutor as any).id,
+        TutorId: tutor.UserId ?? (tutor as any).userId,
+        StudentId: user.userId ?? (user as any).UserId,
         SessionType: sessionType,
         Notes: notes,
         GroupMembers: sessionType === "group" ? groupMembers.map(m => ({ Name: m.name, StudentId: m.studentId })) : [],

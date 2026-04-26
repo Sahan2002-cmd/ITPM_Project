@@ -88,6 +88,18 @@ namespace PeerLearningAndTutorialSystem.Controllers
         }
 
         // ════════════════════════════════════════════════════════════════
+        //  GET  /api/user/pending-tutors
+        // ════════════════════════════════════════════════════════════════
+        [HttpGet]
+        [Route("pending-tutors")]
+        public IHttpActionResult GetPendingTutorSignups()
+        {
+            if (GetCallerRole() != "Admin")
+                return Content(HttpStatusCode.Forbidden, Response.Fail("Access denied. Admin only."));
+            return Ok(_da.GetPendingTutorSignups());
+        }
+
+        // ════════════════════════════════════════════════════════════════
         //  GET  /api/user/my-students
         // ════════════════════════════════════════════════════════════════
         [HttpGet]

@@ -54,7 +54,7 @@ export default function SubjectSelection() {
       const res = await getTutorProfileByUserId(uid);
       if (res?.StatusCode === 1 && res.Data) {
         const p = res.Data;
-        await updateTutorProfile(profileId, {
+        await updateTutorProfile(profileId!, {
           fullName: p.FullName,
           email: p.Email,
           bio: p.Bio,

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../contexts/AuthContext';
-import { getTutorProfileByUserId, updateTutorProfile, uploadProfileImage, updateBasicUserInfo } from '../services/Module_01_API';
+import { getTutorProfileByUserId, updateTutorProfile, uploadProfileImage, updateBasicUserInfo, getUserById } from '../services/Module_01_API';
 import { getRatingsByStudent, getRatingsByTutor, updateRating } from '../services/Module_04_API';
 import { motion } from 'motion/react';
 import { 
@@ -73,6 +73,30 @@ export default function UserProfile() {
 
   const [originalData, setOriginalData] = useState(profileData);
 
+  // ── Load base user info (phone, name, email) for ALL roles ──
+  useEffect(() => {
+    if (!user?.userId) return;
+    getUserById(user.userId)
+      .then((res: any) => {
+        const u = res?.Data || res;
+        if (u) {
+          setProfileData(prev => ({
+            ...prev,
+            name: u.FullName || prev.name,
+            email: u.Email || prev.email,
+            phone: u.PhoneNumber || prev.phone,
+          }));
+          setOriginalData(prev => ({
+            ...prev,
+            name: u.FullName || prev.name,
+            email: u.Email || prev.email,
+            phone: u.PhoneNumber || prev.phone,
+          }));
+        }
+      })
+      .catch(() => {});
+  }, [user?.userId]);
+
   // Load student's submitted ratings
   useEffect(() => {
     if (user?.role !== 'student' || !user.userId) return;
@@ -107,31 +131,35 @@ export default function UserProfile() {
     }
   };
 
-  // Load tutor profile from backend
+  // Load tutor profile from backend (tutor-specific fields)
   useEffect(() => {
     if (user?.role !== 'tutor' || !user.userId) return;
     const uid = user.userId;
-    console.log('[UserProfile] Requesting tutor profile for UID:', uid);
     getTutorProfileByUserId(uid)
       .then((res: any) => {
-        console.log('[UserProfile] Tutor profile response:', res);
         const p = res.Data || res;
         if (p) {
           setTutorProfileId(p.Id ?? null);
-          const loaded: ProfileData = {
-            name: p.FullName || user.name || '',
-            email: p.Email || user.email || '',
-            phone: p.PhoneNumber || '',
-            bio: p.Bio || '',
-            location: '',
-            dateOfBirth: '',
+          setProfileData(prev => ({
+            ...prev,
+            name: p.FullName || prev.name,
+            email: p.Email || prev.email,
+            bio: p.Bio || prev.bio,
             hourlyRate: p.HourlyRate != null ? String(p.HourlyRate) : '',
             experience: p.YearsOfExperience != null ? String(p.YearsOfExperience) : '',
             education: (p.Qualifications ?? []).join(', '),
             subjects: p.SubjectsTaught ?? [],
-          };
-          setProfileData(loaded);
-          setOriginalData(loaded);
+          }));
+          setOriginalData(prev => ({
+            ...prev,
+            name: p.FullName || prev.name,
+            email: p.Email || prev.email,
+            bio: p.Bio || prev.bio,
+            hourlyRate: p.HourlyRate != null ? String(p.HourlyRate) : '',
+            experience: p.YearsOfExperience != null ? String(p.YearsOfExperience) : '',
+            education: (p.Qualifications ?? []).join(', '),
+            subjects: p.SubjectsTaught ?? [],
+          }));
         }
       })
       .catch((err) => {
@@ -141,6 +169,10 @@ export default function UserProfile() {
   }, [user?.userId, user?.role]);
 
   const handleInputChange = (field: keyof ProfileData, value: string) => {
+    // Phone: only allow digits and '+' (for country code)
+    if (field === 'phone') {
+      value = value.replace(/[^+\d]/g, '');
+    }
     setProfileData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -170,7 +202,7 @@ export default function UserProfile() {
           setIsSaving(false);
           return;
         }
-        await updateTutorProfile(tutorProfileId, {
+        await updateTutorProfile(tutorProfileId!, {
           UserId: user.userId,
           Bio: profileData.bio,
           HourlyRate: hourlyRateNum,
@@ -810,7 +842,7 @@ export default function UserProfile() {
 }
 
 // ── Sub-component: tutor's received reviews (their own profile view) ─────────
-function TutorReceivedReviews({ tutorProfileId }: { tutorProfileId: number }) {
+function TutorReceivedReviews({ tutorProfileId }: { tutorProfileId: string }) {
   const [reviews, setReviews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 

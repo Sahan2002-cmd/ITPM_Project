@@ -157,7 +157,7 @@ export const getTutorSubjects = async (tutorId) => {
  * Update an existing tutor profile.
  * Hourly rate changes must still fall within Rs. 100 – Rs. 5,000.
  * Bio must not exceed 500 characters.
- * @param {number} tutorId
+ * @param {string} tutorId
  * @param {Object} updateData - Partial fields: bio, hourlyRate, subjects, etc.
  */
 export const updateTutorProfile = async (tutorId, updateData) => {
