@@ -73,14 +73,14 @@ const getAuthHeadersNoContentType = () => {
 
 const handleResponse = async (res) => {
   const data = await res.json();
-  if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
+  if (!res.ok) throw new Error(data.Message || data.message || `HTTP ${res.status}`);
   return data;
 };
 
 const handleBlobResponse = async (res) => {
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
-    throw new Error(data.message || `HTTP ${res.status}`);
+    throw new Error(data.Message || data.message || `HTTP ${res.status}`);
   }
   return res.blob();
 };

@@ -110,6 +110,7 @@ function validateAllSchedule(schedule: Schedule, enabled: Record<string, boolean
 export default function AvailabilityCalendar() {
   const { user } = useAuth();
   const [tutorProfileId, setTutorProfileId] = useState<string>("");
+  const [profileNotFound, setProfileNotFound] = useState(false);
   const [schedule, setSchedule] = useState<Schedule>(defaultSchedule);
   const [enabled, setEnabled] = useState<Record<string, boolean>>({
     Monday: true, Tuesday: true, Wednesday: true, Thursday: true, Friday: true, Saturday: false, Sunday: false,
@@ -128,8 +129,13 @@ export default function AvailabilityCalendar() {
         const res = await getTutorProfileByUserId(user.userId);
         if (res?.StatusCode === 1 && res.Data?.Id) {
           setTutorProfileId(res.Data.Id);
+          setProfileNotFound(false);
+        } else {
+          setProfileNotFound(true);
         }
-      } catch { /* non-critical; save button will show an error */ }
+      } catch {
+        setProfileNotFound(true);
+      }
     };
     fetchProfile();
   }, [user?.userId]);
@@ -302,6 +308,20 @@ export default function AvailabilityCalendar() {
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
+      {profileNotFound && (
+        <div className="mb-6 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 rounded-2xl flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">Tutor Profile Not Found</p>
+            <p className="text-sm text-amber-700 dark:text-amber-400 mt-1">
+              You need to complete your tutor profile registration before you can set availability.
+            </p>
+            <a href="/tutor/register" className="inline-block mt-2 px-4 py-1.5 bg-amber-600 text-white text-sm font-medium rounded-lg hover:bg-amber-700 transition-colors">
+              Complete Registration →
+            </a>
+          </div>
+        </div>
+      )}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Availability Calendar</h1>
