@@ -141,14 +141,7 @@ namespace PeerLearningAndTutorialSystem.DataAccess
                     string.IsNullOrWhiteSpace(request.PhoneNumber))
                     return Response.Fail("Full name, email, phone number, and password are required.");
 
-                // Check confirmation checkbox
-                if (!request.ConfirmDetails)
-                    return Response.Fail("You must confirm that the details are correct.");
-
-                // Validate Center
-                var validCenters = new[] { "Malabe", "Matara", "Jaffna", "Kandy" };
-                if (string.IsNullOrWhiteSpace(request.Center) || !validCenters.Contains(request.Center))
-                    return Response.Fail("Please select a valid SLIIT center (Malabe, Matara, Jaffna, Kandy).");
+                // Obsolete checks for ConfirmDetails and Center removed as frontend no longer provides them.
 
                 // Check duplicate email
                 if (_users.Find(u => u.Email == request.Email.ToLower().Trim()).Any())

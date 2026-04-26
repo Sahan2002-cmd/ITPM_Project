@@ -29,7 +29,7 @@ function formatDateTime(value: string) {
 }
 
 export default function StudentMeetingRoom() {
-  const { meetingId } = useParams();
+  const { id: meetingId } = useParams();
   const navigate = useNavigate();
   const videoRef = useRef<HTMLVideoElement>(null);
 

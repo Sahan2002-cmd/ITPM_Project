@@ -61,7 +61,7 @@ function extensionFromMime(mimeType: string) {
 }
 
 export default function TutorMeetingRoom() {
-  const { meetingId } = useParams();
+  const { id: meetingId } = useParams();
   const navigate = useNavigate();
   const videoRef = useRef<HTMLVideoElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
