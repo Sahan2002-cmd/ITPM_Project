@@ -27,6 +27,7 @@ export default function UploadRecording() {
   }, [user?.userId]);
 
   const loadTutorBookings = async () => {
+    if (!user?.userId) return;
     try {
       const res = await getBookingsByTutor(user.userId, "Completed");
       if (res.StatusCode === 1) {
